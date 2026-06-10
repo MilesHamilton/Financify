@@ -1,6 +1,6 @@
 import "server-only";
 
-import { eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import {
   Transaction as PlaidTransaction,
   AccountBase,
@@ -55,22 +55,19 @@ export async function syncItem(itemId: string): Promise<void> {
       return;
     }
 
-    // Check if another invocation requested a re-sync while we were running.
-    const [row] = await db
-      .select({ resyncRequested: items.resyncRequested })
-      .from(items)
-      .where(eq(items.id, itemId))
-      .limit(1);
-
-    if (!row?.resyncRequested) {
+    // Atomically consume the resync flag — single conditional UPDATE so a
+    // concurrent setter can never be silently cleared between a SELECT and
+    // an UPDATE. Zero rows means no resync was requested.
+    const consumed = await db.execute(sql`
+      UPDATE items
+         SET resync_requested = false, updated_at = now()
+       WHERE id = ${itemId} AND resync_requested = true
+      RETURNING id
+    `);
+    if ((consumed.rows?.length ?? 0) === 0) {
       return;
     }
-
-    // Clear the flag; loop back to run again (bounded by MAX_RESYNCS).
-    await db
-      .update(items)
-      .set({ resyncRequested: false, updatedAt: new Date() })
-      .where(eq(items.id, itemId));
+    // Flag consumed — loop back to run again (bounded by MAX_RESYNCS).
   }
 }
 
@@ -151,7 +148,6 @@ async function runOnce(itemId: string): Promise<boolean> {
   const pool = getPool();
   try {
     const poolDb = getPoolDb(pool);
-    let cursorCommitted = false;
 
     await poolDb.transaction(async (tx) => {
       const ctx = await loadCategorizationContext();
@@ -187,22 +183,14 @@ async function runOnce(itemId: string): Promise<boolean> {
       `);
 
       if ((cursorUpdate.rows?.length ?? 0) === 0) {
-        // Another writer advanced the cursor — abort (transaction auto-rollbacks
-        // when we throw; the catch below does not release the lease because the
-        // cursor guard rolling back means we lost fairly, not due to an error).
-        cursorCommitted = false;
+        // Another writer advanced the cursor — we lost fairly. Throwing rolls
+        // back the whole apply transaction; the catch below deliberately does
+        // NOT release the lease (the current cursor owner manages it, and a
+        // guarded release here could clobber a newer holder; the 6-min TTL
+        // covers the no-holder edge case).
         throw new CursorConflictError();
       }
-
-      cursorCommitted = true;
     });
-
-    if (!cursorCommitted) {
-      // CursorConflictError was thrown; tx rolled back. Lease was released by
-      // the cursor UPDATE inside the tx before the conflict, but since the tx
-      // rolled back the lease is still held — release it now.
-      await releaseLease(itemId);
-    }
 
     // 5f. Insert sync_events summary row (outside the apply tx, best-effort)
     const durationMs = Date.now() - startedAt;
@@ -215,7 +203,8 @@ async function runOnce(itemId: string): Promise<boolean> {
     });
   } catch (err) {
     if (err instanceof CursorConflictError) {
-      // Cursor conflict is not a real error; already released lease above.
+      // Cursor conflict is not a real error — we lost to another invocation.
+      // Intentionally no lease release here (see comment at the throw site).
       return true;
     }
 
@@ -567,7 +556,8 @@ async function handlePaginationError(
 // Lease management
 // ---------------------------------------------------------------------------
 
-/** Release lease unconditionally (for success path — use within a tx or after). */
+/** Release a lease this invocation holds. Guarded on sync_status='SYNCING' so
+ *  a stale invocation can never clobber a lease re-acquired by another holder. */
 async function releaseLease(itemId: string): Promise<void> {
   await db
     .update(items)
@@ -576,8 +566,7 @@ async function releaseLease(itemId: string): Promise<void> {
       leaseExpiresAt: null,
       updatedAt: new Date(),
     })
-    // Guard: only release if WE hold it (prevents clobbering another holder)
-    .where(eq(items.id, itemId));
+    .where(and(eq(items.id, itemId), eq(items.syncStatus, "SYNCING")));
 }
 
 /** Release lease without throwing — used in error paths. */

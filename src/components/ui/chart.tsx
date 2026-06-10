@@ -84,7 +84,9 @@ type TooltipPayloadItem = {
 };
 
 interface ChartTooltipContentProps
-  extends Omit<TooltipContentProps<number, string>, "formatter"> {
+  // Partial: Recharts injects these props at runtime when cloning the
+  // `content` element — JSX call sites never pass them explicitly.
+  extends Partial<Omit<TooltipContentProps<number, string>, "formatter">> {
   config?: ChartConfig;
   /** Show the label at the top of the tooltip. Default true. */
   hideLabel?: boolean;

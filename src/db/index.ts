@@ -57,8 +57,12 @@ export const db: HttpDb = new Proxy({} as HttpDb, {
 // warm invocation. Node 20+ and Vercel's Node runtime provide a native
 // WebSocket global; no explicit webSocketConstructor assignment is needed.
 export function getPool(): Pool {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL is not set");
+  // Prefer the direct (unpooled) endpoint: the Pool runs interactive
+  // transactions, and PgBouncer transaction-mode pooling can break prepared
+  // statements / session state. Falls back to DATABASE_URL when no direct
+  // URL is configured.
+  const url = process.env.DATABASE_URL_UNPOOLED ?? process.env.DATABASE_URL;
+  if (!url) throw new Error("DATABASE_URL(_UNPOOLED) is not set");
   return new Pool({ connectionString: url });
 }
 
