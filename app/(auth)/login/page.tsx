@@ -1,11 +1,16 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { signIn } from "../../../auth";
 import { AuthError } from "next-auth";
+import {
+  checkRateLimit,
+  recordFailedAttempt,
+} from "@/lib/auth-rate-limit";
 
 export default function LoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; retryAfter?: string }>;
 }) {
   return (
     <LoginForm searchParams={searchParams} />
@@ -15,13 +20,27 @@ export default function LoginPage({
 async function LoginForm({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; retryAfter?: string }>;
 }) {
   const params = await searchParams;
   const error = params.error;
+  const retryAfter = params.retryAfter;
 
   async function login(formData: FormData) {
     "use server";
+
+    // Derive the client IP from the forwarded header (set by Vercel/proxies)
+    // or fall back to a placeholder so the limiter still functions locally.
+    const headersList = await headers();
+    const forwarded = headersList.get("x-forwarded-for");
+    const ip = forwarded ? forwarded.split(",")[0].trim() : "127.0.0.1";
+
+    const { allowed, retryAfterSeconds } = checkRateLimit(ip);
+    if (!allowed) {
+      const minutes = Math.ceil((retryAfterSeconds ?? 0) / 60);
+      redirect(`/login?error=RateLimit&retryAfter=${minutes}`);
+    }
+
     try {
       await signIn("credentials", {
         username: formData.get("username"),
@@ -30,6 +49,7 @@ async function LoginForm({
       });
     } catch (e) {
       if (e instanceof AuthError) {
+        recordFailedAttempt(ip);
         redirect(`/login?error=CredentialsSignin`);
       }
       throw e;
@@ -112,6 +132,18 @@ async function LoginForm({
               style={{ color: "var(--color-negative)" }}
             >
               Invalid username or password.
+            </p>
+          )}
+          {error === "RateLimit" && (
+            <p
+              className="text-sm text-center"
+              style={{ color: "var(--color-negative)" }}
+            >
+              Too many attempts — try again in{" "}
+              {retryAfter && parseInt(retryAfter, 10) > 0
+                ? `${retryAfter} minute${parseInt(retryAfter, 10) === 1 ? "" : "s"}`
+                : "a few minutes"}
+              .
             </p>
           )}
 

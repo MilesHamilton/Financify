@@ -40,3 +40,7 @@ yarn-error.log*
 
 # Job queue (temporary planning artifacts — never committed)
 /job-queue
+
+# Serwist build output
+public/sw.js
+public/sw.js.map

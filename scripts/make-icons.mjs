@@ -10,6 +10,10 @@
  *   icon-512.png      512x512  solid #0B0E14 background + light "F" glyph
  *   maskable-512.png  512x512  solid #0B0E14 background with safe-zone padding
  *
+ * Also writes the iOS apple-touch-icon (Next.js App Router file convention):
+ *   app/apple-icon.png          180x180  Next.js auto-injects <link rel="apple-touch-icon">
+ *   public/apple-touch-icon.png 180x180  Fallback for non-Next consumers (harmless duplicate)
+ *
  * Replace with real branding assets before launch.
  */
 
@@ -19,7 +23,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const OUT_DIR = join(__dirname, "..", "public", "icons");
+const ROOT_DIR = join(__dirname, "..");
+const OUT_DIR = join(ROOT_DIR, "public", "icons");
 
 // --- CRC-32 table (standard PNG CRC) ---
 function buildCrcTable() {
@@ -174,14 +179,19 @@ function makeMaskable(size) {
 // --- Write files ---
 mkdirSync(OUT_DIR, { recursive: true });
 
+const appleTouchIcon = makeIcon(180);
+
 const files = [
-  { name: "icon-192.png",     buf: makeIcon(192) },
-  { name: "icon-512.png",     buf: makeIcon(512) },
-  { name: "maskable-512.png", buf: makeMaskable(512) },
+  { path: join(OUT_DIR, "icon-192.png"),                    buf: makeIcon(192) },
+  { path: join(OUT_DIR, "icon-512.png"),                    buf: makeIcon(512) },
+  { path: join(OUT_DIR, "maskable-512.png"),                buf: makeMaskable(512) },
+  // Next.js App Router file convention: auto-injects <link rel="apple-touch-icon">
+  { path: join(ROOT_DIR, "app", "apple-icon.png"),          buf: appleTouchIcon },
+  // Fallback for non-Next consumers (harmless duplicate per output-rendering.md)
+  { path: join(ROOT_DIR, "public", "apple-touch-icon.png"), buf: appleTouchIcon },
 ];
 
-for (const { name, buf } of files) {
-  const dest = join(OUT_DIR, name);
+for (const { path: dest, buf } of files) {
   writeFileSync(dest, buf);
   console.log(`wrote ${dest}  (${buf.length} bytes)`);
 }
