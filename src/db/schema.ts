@@ -36,38 +36,52 @@ import {
   index,
   uniqueIndex,
   primaryKey,
+  check,
 } from "drizzle-orm/pg-core";
 
 // ---------------------------------------------------------------------------
 // 1. items
 // ---------------------------------------------------------------------------
 
-export const items = pgTable("items", {
-  id: text("id").primaryKey(),
-  accessTokenEnc: text("access_token_enc").notNull(),
-  institutionId: text("institution_id").notNull(),
-  institutionName: text("institution_name").notNull(),
-  status: text("status").notNull().default("active"),
-  syncStatus: text("sync_status").notNull().default("IDLE"),
-  leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
-  resyncRequested: boolean("resync_requested").notNull().default(false),
-  transactionsCursor: text("transactions_cursor"),
-  initialUpdateComplete: boolean("initial_update_complete")
-    .notNull()
-    .default(false),
-  historicalUpdateComplete: boolean("historical_update_complete")
-    .notNull()
-    .default(false),
-  lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
-  lastSyncError: text("last_sync_error"),
-  createdAt: timestamp("created_at", { withTimezone: true })
-    .notNull()
-    .defaultNow(),
-  updatedAt: timestamp("updated_at", { withTimezone: true })
-    .notNull()
-    .defaultNow()
-    .$onUpdate(() => new Date()),
-});
+export const items = pgTable(
+  "items",
+  {
+    id: text("id").primaryKey(),
+    accessTokenEnc: text("access_token_enc").notNull(),
+    institutionId: text("institution_id").notNull(),
+    institutionName: text("institution_name").notNull(),
+    status: text("status").notNull().default("active"),
+    syncStatus: text("sync_status").notNull().default("IDLE"),
+    leaseExpiresAt: timestamp("lease_expires_at", { withTimezone: true }),
+    resyncRequested: boolean("resync_requested").notNull().default(false),
+    transactionsCursor: text("transactions_cursor"),
+    initialUpdateComplete: boolean("initial_update_complete")
+      .notNull()
+      .default(false),
+    historicalUpdateComplete: boolean("historical_update_complete")
+      .notNull()
+      .default(false),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    lastSyncError: text("last_sync_error"),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    check(
+      "items_status_check",
+      sql`${t.status} IN ('active','login_required','pending_disconnect','revoked')`,
+    ),
+    check(
+      "items_sync_status_check",
+      sql`${t.syncStatus} IN ('IDLE','SYNCING')`,
+    ),
+  ],
+);
 
 // ---------------------------------------------------------------------------
 // 2. accounts
@@ -101,15 +115,24 @@ export const accounts = pgTable("accounts", {
 // 4. categories (defined before transactions because transactions FK → categories)
 // ---------------------------------------------------------------------------
 
-export const categories = pgTable("categories", {
-  id: text("id").primaryKey(),
-  label: text("label").notNull(),
-  icon: text("icon").notNull(),
-  color: text("color").notNull(),
-  group: text("group").notNull(),
-  sortOrder: integer("sort_order").notNull().default(0),
-  isArchived: boolean("is_archived").notNull().default(false),
-});
+export const categories = pgTable(
+  "categories",
+  {
+    id: text("id").primaryKey(),
+    label: text("label").notNull(),
+    icon: text("icon").notNull(),
+    color: text("color").notNull(),
+    group: text("group").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    isArchived: boolean("is_archived").notNull().default(false),
+  },
+  (t) => [
+    check(
+      "categories_group_check",
+      sql`${t.group} IN ('expense','income','transfer')`,
+    ),
+  ],
+);
 
 // ---------------------------------------------------------------------------
 // 3. transactions (defined after categories due to FK dependency)
@@ -156,15 +179,19 @@ export const transactions = pgTable(
       .$onUpdate(() => new Date()),
   },
   (t) => [
-    index("tx_date_idx").on(t.date),
-    index("tx_account_date").on(t.accountId, t.date),
-    index("tx_category_date").on(t.categoryId, t.date),
+    index("tx_date_idx").on(t.date.desc()),
+    index("tx_account_date").on(t.accountId, t.date.desc()),
+    index("tx_category_date").on(t.categoryId, t.date.desc()),
     index("tx_merchant_entity")
       .on(t.merchantEntityId)
       .where(sql`merchant_entity_id IS NOT NULL`),
     index("tx_pending_link")
       .on(t.pendingTransactionId)
       .where(sql`pending_transaction_id IS NOT NULL`),
+    check(
+      "transactions_category_source_check",
+      sql`${t.categorySource} IN ('plaid','rule','user')`,
+    ),
   ],
 );
 
@@ -232,6 +259,7 @@ export const budgets = pgTable(
       t.categoryId,
       t.effectiveMonth,
     ),
+    check("budgets_amount_check", sql`${t.amount} >= 0`),
   ],
 );
 
@@ -275,7 +303,7 @@ export const syncEvents = pgTable(
   },
   (t) => [
     index("sync_events_item_time")
-      .on(t.itemId, t.createdAt)
+      .on(t.itemId, t.createdAt.desc())
       .where(sql`item_id IS NOT NULL`),
   ],
 );

@@ -28,8 +28,28 @@ import { drizzle as drizzleHttp } from "drizzle-orm/neon-http";
 import { drizzle as drizzleWs } from "drizzle-orm/neon-serverless";
 import * as schema from "./schema";
 
-// HTTP mode — module-scope singleton, reused across warm invocations.
-export const db = drizzleHttp(neon(process.env.DATABASE_URL!), { schema });
+// HTTP mode — lazily-initialized singleton, reused across warm invocations.
+// Lazy because Next.js imports route modules at build time (page-data
+// collection) where DATABASE_URL is not set; eager neon() would fail the build.
+type HttpDb = ReturnType<typeof drizzleHttp<typeof schema>>;
+let _db: HttpDb | null = null;
+
+function getDb(): HttpDb {
+  if (!_db) {
+    const url = process.env.DATABASE_URL;
+    if (!url) throw new Error("DATABASE_URL is not set");
+    _db = drizzleHttp(neon(url), { schema });
+  }
+  return _db;
+}
+
+export const db: HttpDb = new Proxy({} as HttpDb, {
+  get(_target, prop) {
+    const real = getDb();
+    const value = Reflect.get(real, prop, real);
+    return typeof value === "function" ? value.bind(real) : value;
+  },
+});
 
 // WebSocket Pool mode — lazily created on first call to getPool().
 // Callers are responsible for calling pool.end() after the transaction.
