@@ -51,19 +51,17 @@ export const db: HttpDb = new Proxy({} as HttpDb, {
   },
 });
 
-// WebSocket Pool mode — lazily created on first call to getPool().
-// Callers are responsible for calling pool.end() after the transaction.
-// Node 20+ and Vercel's Node runtime provide a native WebSocket global;
-// no explicit webSocketConstructor assignment is needed.
-let _pool: Pool | null = null;
-
+// WebSocket Pool mode — a FRESH pool per call; the caller owns the lifecycle
+// and must call pool.end() in a finally. No singleton: the sync engine ends
+// its pool after each run, and a terminated singleton would poison the next
+// warm invocation. Node 20+ and Vercel's Node runtime provide a native
+// WebSocket global; no explicit webSocketConstructor assignment is needed.
 export function getPool(): Pool {
-  if (!_pool) {
-    _pool = new Pool({ connectionString: process.env.DATABASE_URL! });
-  }
-  return _pool;
+  const url = process.env.DATABASE_URL;
+  if (!url) throw new Error("DATABASE_URL is not set");
+  return new Pool({ connectionString: url });
 }
 
-export function getPoolDb() {
-  return drizzleWs(getPool(), { schema });
+export function getPoolDb(pool: Pool) {
+  return drizzleWs(pool, { schema });
 }
