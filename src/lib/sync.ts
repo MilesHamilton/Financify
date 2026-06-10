@@ -152,22 +152,24 @@ async function runOnce(itemId: string): Promise<boolean> {
     await poolDb.transaction(async (tx) => {
       const ctx = await loadCategorizationContext();
 
-      // 5a. Process added[] — carry-over + upsert
+      // 5a. Upsert accounts and insert balance snapshots FIRST — transactions
+      //     reference accounts by FK, and a sync can carry transactions for
+      //     accounts not yet in the DB (e.g. NEW_ACCOUNTS_AVAILABLE).
+      await applyAccounts(tx, syncAccounts, itemId);
+
+      // 5b. Process added[] — carry-over + upsert
       await applyAdded(tx, added, itemId, ctx);
 
-      // 5b. Process modified[] — upsert Plaid-owned columns; re-resolve only
+      // 5c. Process modified[] — upsert Plaid-owned columns; re-resolve only
       //     when category_source != 'user'
       await applyModified(tx, modified, ctx);
 
-      // 5c. Hard-delete removed[] (after carry-over reads in 5a are complete)
+      // 5d. Hard-delete removed[] (after carry-over reads in 5b are complete)
       if (removedIds.length > 0) {
         await tx
           .delete(transactions)
           .where(inArray(transactions.id, removedIds));
       }
-
-      // 5d. Upsert accounts and insert balance snapshots
-      await applyAccounts(tx, syncAccounts, itemId);
 
       // 5e. Conditional cursor commit (optimistic guard per TR § 3)
       const cursorUpdate = await tx.execute(sql`
