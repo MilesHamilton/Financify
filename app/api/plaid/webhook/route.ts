@@ -149,7 +149,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     case "link_session_finished": {
       const { link_token, link_session_id, status } = parsed;
 
-      if (status !== "SUCCESS") {
+      // Plaid delivers this value lowercase ("success") despite docs showing
+      // "SUCCESS" — compare case-insensitively or every session is dropped.
+      if (status.toUpperCase() !== "SUCCESS") {
         // Non-success sessions (EXIT, ERROR) — log for audit, no token exchange.
         after(async () => {
           try {
@@ -161,6 +163,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 webhook_code: parsed.webhook_code,
                 link_session_id,
                 status,
+                // Recovery breadcrumb: lets an operator re-run the exchange
+                // via /link/token/get while the session is still fresh.
+                link_token,
               },
             });
           } catch (err) {
@@ -195,6 +200,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
                 webhook_type: "LINK",
                 webhook_code: "SESSION_FINISHED",
                 link_session_id,
+                link_token,
                 status: "handler_error",
                 error: err instanceof Error ? err.message : String(err),
               },
