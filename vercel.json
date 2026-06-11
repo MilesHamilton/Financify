@@ -4,5 +4,6 @@
       "path": "/api/cron/sync",
       "schedule": "0 9 * * *"
     }
-  ]
+  ],
+  "framework": "nextjs"
 }
