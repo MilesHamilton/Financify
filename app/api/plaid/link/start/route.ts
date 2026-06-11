@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { errInfo } from "@/lib/log-error";
 import { z } from "zod";
 import { auth } from "../../../../../auth";
 import { plaidClient } from "@/lib/plaid";
@@ -112,7 +113,7 @@ export async function POST(_req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    console.error("[link/start] Unexpected error during linkTokenCreate", err);
+    console.error("[link/start] Unexpected error during linkTokenCreate", errInfo(err));
     return NextResponse.json(
       { error: "link_token_create_failed" },
       { status: 500 },

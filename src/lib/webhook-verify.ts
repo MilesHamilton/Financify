@@ -4,6 +4,7 @@ import { decodeProtectedHeader, importJWK, jwtVerify } from "jose";
 import type { JWK, ProtectedHeaderParameters } from "jose";
 import type { JWKPublicKey } from "plaid";
 import { plaidClient } from "@/lib/plaid";
+import { errInfo } from "@/lib/log-error";
 
 // Module-scope JWK cache keyed by kid. Warm instances reuse this across requests.
 const jwkCache = new Map<string, JWK>();
@@ -42,7 +43,7 @@ export async function verifyWebhook(
     try {
       protectedHeader = decodeProtectedHeader(plaidVerificationHeader);
     } catch (err) {
-      console.error({ msg: "webhook_verify_failed", reason: "jwt_header_decode_error", err });
+      console.error({ msg: "webhook_verify_failed", reason: "jwt_header_decode_error", error: errInfo(err) });
       return false;
     }
 
@@ -70,7 +71,7 @@ export async function verifyWebhook(
         const response = await plaidClient.webhookVerificationKeyGet({ key_id: kid });
         plaidKey = response.data.key;
       } catch (err) {
-        console.error({ msg: "webhook_verify_failed", reason: "jwk_fetch_error", kid, err });
+        console.error({ msg: "webhook_verify_failed", reason: "jwk_fetch_error", kid, error: errInfo(err) });
         return false;
       }
 
@@ -104,7 +105,7 @@ export async function verifyWebhook(
       });
       payload = result.payload as Record<string, unknown>;
     } catch (err) {
-      console.error({ msg: "webhook_verify_failed", reason: "jwt_signature_invalid", kid, err });
+      console.error({ msg: "webhook_verify_failed", reason: "jwt_signature_invalid", kid, error: errInfo(err) });
       return false;
     }
 
@@ -145,7 +146,7 @@ export async function verifyWebhook(
     return true;
   } catch (err) {
     // Step 9: Never throw to the caller. Log loudly so broken verification is visible.
-    console.error({ msg: "webhook_verify_unexpected_error", err });
+    console.error({ msg: "webhook_verify_unexpected_error", error: errInfo(err) });
     return false;
   }
 }

@@ -10,6 +10,7 @@ import {
 
 import { plaidClient } from "@/lib/plaid";
 import { decryptToken } from "@/lib/crypto";
+import { errInfo } from "@/lib/log-error";
 import {
   loadCategorizationContext,
   resolveCategory,
@@ -218,7 +219,7 @@ async function runOnce(itemId: string): Promise<boolean> {
       duration_ms: durationMs,
       outcome: "error",
     });
-    console.error({ msg: "syncItem apply error", itemId, err });
+    console.error({ msg: "syncItem apply error", itemId, error: errInfo(err) });
   } finally {
     // Per runtime-execution.md: end WebSocket pool within the invocation.
     await pool.end().catch(() => {
@@ -551,7 +552,7 @@ async function handlePaginationError(
     duration_ms: durationMs,
     outcome: "error",
   });
-  console.error({ msg: "syncItem pagination error", itemId, err });
+  console.error({ msg: "syncItem pagination error", itemId, error: errInfo(err) });
 }
 
 // ---------------------------------------------------------------------------

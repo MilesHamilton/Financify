@@ -8,6 +8,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { errInfo } from "@/lib/log-error";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
 import { auth } from "../../../../auth";
@@ -164,7 +165,7 @@ export async function PUT(
       );
     }
 
-    console.error("[PUT /api/category-rules/:id] Unexpected error", err);
+    console.error("[PUT /api/category-rules/:id] Unexpected error", errInfo(err));
     return NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
 }

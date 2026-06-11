@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { errInfo } from "@/lib/log-error";
 import { eq } from "drizzle-orm";
 
 import { db } from "@/db/index";
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       synced.push(item.id);
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      console.error({ msg: "cron syncItem failed", itemId: item.id, err });
+      console.error({ msg: "cron syncItem failed", itemId: item.id, error: errInfo(err) });
       failed.push({ id: item.id, error: message });
     }
   }

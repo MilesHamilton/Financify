@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { errInfo } from "@/lib/log-error";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
 import { auth } from "../../../auth";
@@ -212,7 +213,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    console.error("[POST /api/budgets] Unexpected error", err);
+    console.error("[POST /api/budgets] Unexpected error", errInfo(err));
     return NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
 }

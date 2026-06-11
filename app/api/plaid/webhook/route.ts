@@ -16,6 +16,7 @@
  */
 
 import { after } from "next/server";
+import { errInfo } from "@/lib/log-error";
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { verifyWebhook } from "@/lib/webhook-verify";
@@ -90,7 +91,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     console.error({
       msg: "webhook_parse_error",
       reason: "json_or_schema_parse_failed",
-      err,
+      error: errInfo(err),
     });
     // FR-019: malformed post-verification payload → log + 200.
     return NextResponse.json({}, { status: 200 });
@@ -138,7 +139,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             },
           });
         } catch (err) {
-          console.error({ msg: "sync_events_insert_failed", itemId, err });
+          console.error({ msg: "sync_events_insert_failed", itemId, error: errInfo(err) });
         }
         await syncItem(itemId);
       });
@@ -173,7 +174,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             console.error({
               msg: "sync_events_insert_failed",
               link_session_id,
-              err,
+              error: errInfo(err),
             });
           }
         });
@@ -194,7 +195,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           console.error({
             msg: "session_finished_handler_failed",
             link_session_id,
-            err,
+            error: errInfo(err),
           });
           // Audit row so the failure is visible even when the handler threw.
           try {
@@ -242,7 +243,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             },
           });
         } catch (err) {
-          console.error({ msg: "item_error_handler_failed", itemId, err });
+          console.error({ msg: "item_error_handler_failed", itemId, error: errInfo(err) });
         }
       });
       break;
@@ -271,7 +272,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           console.error({
             msg: "item_pending_disconnect_handler_failed",
             itemId,
-            err,
+            error: errInfo(err),
           });
         }
       });
@@ -300,7 +301,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           console.error({
             msg: "item_user_permission_revoked_handler_failed",
             itemId,
-            err,
+            error: errInfo(err),
           });
         }
       });
@@ -329,7 +330,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           console.error({
             msg: "item_login_repaired_handler_failed",
             itemId,
-            err,
+            error: errInfo(err),
           });
         }
       });
@@ -354,7 +355,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           console.error({
             msg: "item_new_accounts_available_handler_failed",
             itemId,
-            err,
+            error: errInfo(err),
           });
         }
       });
@@ -379,7 +380,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           console.error({
             msg: "item_webhook_update_acknowledged_handler_failed",
             itemId,
-            err,
+            error: errInfo(err),
           });
         }
       });
@@ -411,7 +412,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
             },
           });
         } catch (err) {
-          console.error({ msg: "sync_events_insert_failed_unknown", err });
+          console.error({ msg: "sync_events_insert_failed_unknown", error: errInfo(err) });
         }
       });
       break;

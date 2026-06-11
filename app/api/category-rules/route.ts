@@ -6,6 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { errInfo } from "@/lib/log-error";
 import { z } from "zod";
 import { auth } from "../../../auth";
 import { db } from "@/db";
@@ -159,7 +160,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    console.error("[POST /api/category-rules] Unexpected error", err);
+    console.error("[POST /api/category-rules] Unexpected error", errInfo(err));
     return NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
 }

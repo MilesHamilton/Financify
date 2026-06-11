@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { errInfo } from "@/lib/log-error";
 import { z } from "zod";
 import { auth } from "../../../../auth";
 import { handleSessionFinished } from "@/lib/link-session";
@@ -45,7 +46,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ recovered: true });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error({ msg: "recover_link_failed", err });
+    console.error({ msg: "recover_link_failed", error: errInfo(err) });
     return NextResponse.json(
       { recovered: false, error: message },
       { status: 502 },
