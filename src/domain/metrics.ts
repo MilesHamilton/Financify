@@ -307,6 +307,32 @@ export interface IncomeEstimateResult {
   usingOverride: boolean;
 }
 
+export interface BudgetComputeInput {
+  monthlyIncome: number;
+  savingsTarget: number;
+  spentThisMonth: number;
+  daysRemaining: number;     // always ≥ 1
+  past30dAvgPerDay: number;
+  usingOverride: boolean;
+}
+export interface BudgetComputeOutput {
+  monthlySpendable: number;
+  leftToSpend: number;
+  safeToSpendPerDay: number; // NOT capped — may be negative (product decision 1B)
+  status: "on_track" | "at_risk";
+  noIncomeData: boolean;
+}
+/** Pure safe-to-spend math — no DB, no I/O, fully unit-testable. */
+export function computeBudgetStatus(input: BudgetComputeInput): BudgetComputeOutput {
+  const monthlySpendable = input.monthlyIncome - input.savingsTarget;
+  const leftToSpend = monthlySpendable - input.spentThisMonth;
+  const safeToSpendPerDay = leftToSpend / input.daysRemaining; // NOT capped (1B)
+  const status: "on_track" | "at_risk" =
+    leftToSpend <= 0 || input.past30dAvgPerDay > safeToSpendPerDay ? "at_risk" : "on_track";
+  const noIncomeData = input.monthlyIncome === 0 && !input.usingOverride;
+  return { monthlySpendable, leftToSpend, safeToSpendPerDay, status, noIncomeData };
+}
+
 /** T-B06 — full safe-to-spend budget status for a month. */
 export interface BudgetStatusResult {
   month: string;
@@ -1004,29 +1030,31 @@ export async function getBudgetStatus(month: string): Promise<BudgetStatusResult
   const incomeNum = parseFloat(income.estimatedIncome);
   const targetNum = parseFloat(income.savingsTarget);
   const spentNum = parseFloat(spend.totalSpend);
-  const spendableNum = incomeNum - targetNum;
-  const leftNum = spendableNum - spentNum;
-  const safeNum = leftNum / daysRemaining; // T-B06: NOT capped — may be negative
   const past30Num = parseFloat(
     (past30Rows.rows[0] as { avg_per_day: string } | undefined)?.avg_per_day ?? "0",
   );
 
-  const status: "on_track" | "at_risk" =
-    leftNum <= 0 || past30Num > safeNum ? "at_risk" : "on_track";
-  const noIncomeData = incomeNum === 0 && !income.usingOverride;
+  const computed = computeBudgetStatus({
+    monthlyIncome: incomeNum,
+    savingsTarget: targetNum,
+    spentThisMonth: spentNum,
+    daysRemaining,
+    past30dAvgPerDay: past30Num,
+    usingOverride: income.usingOverride,
+  });
 
   return {
     month,
     monthlyIncome: incomeNum.toFixed(2),
-    monthlySpendable: spendableNum.toFixed(2),
+    monthlySpendable: computed.monthlySpendable.toFixed(2),
     savingsTarget: targetNum.toFixed(2),
     spentThisMonth: spentNum.toFixed(2),
-    leftToSpend: leftNum.toFixed(2),
+    leftToSpend: computed.leftToSpend.toFixed(2),
     daysRemaining,
-    safeToSpendPerDay: safeNum.toFixed(2),
+    safeToSpendPerDay: computed.safeToSpendPerDay.toFixed(2),
     past30dAvgPerDay: past30Num.toFixed(2),
-    status,
-    noIncomeData,
+    status: computed.status,
+    noIncomeData: computed.noIncomeData,
   };
 }
 
