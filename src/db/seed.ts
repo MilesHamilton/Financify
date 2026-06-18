@@ -22,7 +22,7 @@ dotenv.config({ path: ".env.local" });
 
 // Import db after dotenv so DATABASE_URL is available.
 import { db } from "./index";
-import { categories, plaidCategoryMap } from "./schema";
+import { appSettings, categories, plaidCategoryMap } from "./schema";
 import type { NewCategory, NewPlaidCategoryMap } from "./schema";
 
 // ---------------------------------------------------------------------------
@@ -380,6 +380,13 @@ async function main(): Promise<void> {
       });
   }
   console.log(`[seed] plaid_category_map upserted: ${mapRows.length}`);
+
+  // Seed single-row app-settings default (savings target 0, no income override).
+  await db
+    .insert(appSettings)
+    .values({ id: "app", monthlySavingsTarget: "0", monthlyIncomeOverride: null })
+    .onConflictDoNothing();
+  console.log(`[seed] app_settings default row ensured`);
 
   console.log("\n[seed] Done.");
 }

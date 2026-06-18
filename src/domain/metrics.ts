@@ -60,6 +60,7 @@ import {
   items,
   budgets,
   accountBalanceSnapshots,
+  appSettings,
 } from "@/db/schema";
 import { sql, eq, and, lt, lte, gt, gte, or, ilike, desc, asc } from "drizzle-orm";
 
@@ -293,6 +294,18 @@ export interface AccountRow {
 
 /** FR-033 / FR-030 — all accounts with their item metadata. */
 export type AccountsResult = AccountRow[];
+
+/** T-B05 — monthly income estimate with optional user override and savings target. */
+export interface IncomeEstimateResult {
+  /** Estimated monthly income in dollars (positive). Numeric string, or "0". */
+  estimatedIncome: string;
+  /** Override value if set, else null. Numeric string or null. */
+  incomeOverride: string | null;
+  /** Savings target. Numeric string. */
+  savingsTarget: string;
+  /** True when the override is active (estimatedIncome reflects the override). */
+  usingOverride: boolean;
+}
 
 // ---------------------------------------------------------------------------
 // Pagination cursor type (internal)
@@ -849,7 +862,75 @@ export async function getTransactions(
 }
 
 // ---------------------------------------------------------------------------
-// 7. getAccounts — FR-030 / FR-033
+// 7. getMonthlyIncomeEstimate — T-B05
+// ---------------------------------------------------------------------------
+
+/**
+ * Estimates monthly income for the "safe-to-spend" budget calculation.
+ *
+ * Priority:
+ *   1. If the user has set a monthly_income_override in app_settings, return
+ *      that value directly (usingOverride=true).
+ *   2. Otherwise, average the last 3 FULL calendar months of income-group
+ *      inflow (SUM(-amount) WHERE group='income' AND NOT is_excluded).
+ *      The current partial month is excluded to avoid mid-month volatility.
+ *
+ * Income sign convention: SUM(-t.amount) where amount < 0 yields a positive
+ * dollar figure (mirrors getMonthSpend totalIncome). See file header §
+ * "Amount sign convention".
+ *
+ * Returns the monthly_savings_target from app_settings alongside the income
+ * figure so callers can compute disposable income in a single query round-trip.
+ */
+export async function getMonthlyIncomeEstimate(): Promise<IncomeEstimateResult> {
+  // 1. Read the single app_settings row.
+  const settingsRows = await db
+    .select({
+      savingsTarget: appSettings.monthlySavingsTarget,
+      incomeOverride: appSettings.monthlyIncomeOverride,
+    })
+    .from(appSettings)
+    .limit(1);
+
+  const savingsTarget = settingsRows[0]?.savingsTarget ?? "0";
+  const incomeOverride = settingsRows[0]?.incomeOverride ?? null;
+
+  // 2. Override wins when set.
+  if (incomeOverride !== null) {
+    return { estimatedIncome: incomeOverride, incomeOverride, savingsTarget, usingOverride: true };
+  }
+
+  // 3. Otherwise average the last 3 FULL calendar months of income-group inflow
+  //    (excludes the current partial month to avoid mid-month volatility).
+  const current = currentNYMonth();                 // "YYYY-MM"
+  const currentMonthStart = `${current}-01`;        // first of current month (exclusive upper bound)
+  const [cy, cm] = current.split("-").map(Number);
+  let ty = cy, tm = cm - 3;
+  while (tm <= 0) { tm += 12; ty -= 1; }
+  const threeMonthsAgoStart = `${ty}-${String(tm).padStart(2, "0")}-01`;
+
+  const rows = await db.execute(sql`
+    SELECT COALESCE(AVG(monthly_total), 0)::text AS estimated_income
+    FROM (
+      SELECT to_char(t.date, 'YYYY-MM') AS m, SUM(-t.amount) AS monthly_total
+      FROM transactions t
+      JOIN categories c ON c.id = t.category_id
+      WHERE c."group" = 'income'
+        AND t.is_excluded = false
+        AND t.date >= ${threeMonthsAgoStart}::date
+        AND t.date <  ${currentMonthStart}::date
+      GROUP BY to_char(t.date, 'YYYY-MM')
+      ORDER BY m DESC
+      LIMIT 3
+    ) sub
+  `);
+
+  const estimatedIncome = (rows.rows[0] as { estimated_income: string } | undefined)?.estimated_income ?? "0";
+  return { estimatedIncome, incomeOverride, savingsTarget, usingOverride: false };
+}
+
+// ---------------------------------------------------------------------------
+// 8. getAccounts — FR-030 / FR-033
 // ---------------------------------------------------------------------------
 
 /**

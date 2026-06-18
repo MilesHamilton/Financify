@@ -8,6 +8,13 @@
       "when": 1781116603429,
       "tag": "0000_steady_tarantula",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1781798231109,
+      "tag": "0001_rich_omega_flight",
+      "breakpoints": true
     }
   ]
 }
