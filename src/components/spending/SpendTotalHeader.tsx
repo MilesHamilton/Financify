@@ -1,5 +1,6 @@
+import Link from "next/link";
 import { Amount } from "@/components/Amount";
-import { TrendingDown, TrendingUp } from "lucide-react";
+import { ChevronRight, TrendingDown, TrendingUp } from "lucide-react";
 import type { MonthSpendResult } from "@/domain/metrics";
 
 interface SpendTotalHeaderProps {
@@ -13,12 +14,14 @@ export function SpendTotalHeader({ data }: SpendTotalHeaderProps) {
   const isDecrease = delta < 0;
 
   return (
+    <Link href="/budget" className="block tap-highlight-transparent">
     <div className="px-4 pt-2 pb-4">
       <p
-        className="mb-1 text-xs font-medium uppercase tracking-wider"
+        className="mb-1 flex items-center gap-1 text-xs font-medium uppercase tracking-wider"
         style={{ color: "var(--color-text-muted)" }}
       >
         Spending this month
+        <ChevronRight size={16} aria-hidden="true" style={{ color: "var(--color-text-muted)" }} />
       </p>
       <div className="flex items-end gap-3">
         <Amount value={total} variant="neutral" size="xl" />
@@ -42,5 +45,6 @@ export function SpendTotalHeader({ data }: SpendTotalHeaderProps) {
         )}
       </div>
     </div>
+    </Link>
   );
 }
