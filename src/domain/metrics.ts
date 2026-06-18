@@ -131,6 +131,26 @@ export function currentNYMonth(): string {
   return `${year}-${month}`;
 }
 
+/**
+ * Returns the number of days from todayNY (inclusive) through the last day of
+ * the given month (inclusive). Minimum return value: 1 (the last day of the month).
+ *
+ * Both dates are parsed identically (local midnight) so the difference is an
+ * exact integer day count regardless of the server timezone.
+ *
+ * @param month   - YYYY-MM string (America/New_York)
+ * @param todayNY - YYYY-MM-DD string representing today in America/New_York
+ */
+export function daysRemainingInMonth(month: string, todayNY: string): number {
+  const { end } = toNYMonthBounds(month); // end = first day of next month (exclusive)
+  const lastDay = new Date(`${end}T00:00:00`);
+  lastDay.setDate(lastDay.getDate() - 1); // → last day of this month
+  const todayDate = new Date(`${todayNY}T00:00:00`);
+  const diffMs = lastDay.getTime() - todayDate.getTime();
+  const diffDays = Math.floor(diffMs / 86_400_000);
+  return Math.max(1, diffDays + 1); // +1 for inclusive; floored at 1 on the last day
+}
+
 // ---------------------------------------------------------------------------
 // Exported interfaces — the UI screens type against exactly these
 // ---------------------------------------------------------------------------

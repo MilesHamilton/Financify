@@ -1,3 +1,8 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useTransition } from "react";
+import { RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface SyncStatusPillProps {
@@ -53,18 +58,35 @@ const stateConfig: Record<
 };
 
 export function SyncStatusPill({ lastSyncedAt, itemsInError }: SyncStatusPillProps) {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+
+  function handleRefresh() {
+    fetch("/api/sync/trigger", { method: "POST" }).catch(() => {});
+    startTransition(() => { router.refresh(); });
+  }
+
   const state = resolveState(lastSyncedAt, itemsInError);
   const { dotClass, label } = stateConfig[state];
 
   return (
-    <span
+    <button
+      type="button"
+      aria-label="Refresh data"
+      disabled={isPending}
+      onClick={handleRefresh}
       className={cn(
         "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1",
         "bg-[var(--color-surface-2)] text-xs text-[var(--color-text-muted)]",
+        "cursor-pointer disabled:opacity-70",
       )}
     >
-      <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", dotClass)} />
+      {isPending ? (
+        <RefreshCw className="h-3 w-3 animate-spin shrink-0" />
+      ) : (
+        <span className={cn("h-1.5 w-1.5 rounded-full shrink-0", dotClass)} />
+      )}
       {label(lastSyncedAt)}
-    </span>
+    </button>
   );
 }

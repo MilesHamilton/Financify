@@ -309,7 +309,33 @@ export const syncEvents = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// Inferred row types — $inferSelect (read) and $inferInsert (write) for all 9 tables
+// 10. app_settings
+// Single-row table. The constant 'app' primary key + id = 'app' CHECK constraint
+// enforce exactly one row. monthly_income_override is nullable (NULL = use the
+// computed 3-month average income). Separate from per-category budgets table.
+// ---------------------------------------------------------------------------
+
+export const appSettings = pgTable(
+  "app_settings",
+  {
+    id: text("id").primaryKey().default("app"),
+    monthlySavingsTarget: numeric("monthly_savings_target", { precision: 14, scale: 2 })
+      .notNull()
+      .default("0"),
+    monthlyIncomeOverride: numeric("monthly_income_override", { precision: 14, scale: 2 }),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    check("app_settings_id_check", sql`${t.id} = 'app'`),
+    check("app_settings_target_check", sql`${t.monthlySavingsTarget} >= 0`),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Inferred row types — $inferSelect (read) and $inferInsert (write) for all 10 tables
 // ---------------------------------------------------------------------------
 
 export type Item = typeof items.$inferSelect;
@@ -339,3 +365,6 @@ export type NewAccountBalanceSnapshot =
 
 export type SyncEvent = typeof syncEvents.$inferSelect;
 export type NewSyncEvent = typeof syncEvents.$inferInsert;
+
+export type AppSettings = typeof appSettings.$inferSelect;
+export type NewAppSettings = typeof appSettings.$inferInsert;
