@@ -307,6 +307,29 @@ export interface IncomeEstimateResult {
   usingOverride: boolean;
 }
 
+/** T-B06 — full safe-to-spend budget status for a month. */
+export interface BudgetStatusResult {
+  month: string;
+  /** monthlyIncome after applying any override. Numeric string. */
+  monthlyIncome: string;
+  /** monthlyIncome − savingsTarget. May be negative. Numeric string. */
+  monthlySpendable: string;
+  savingsTarget: string;
+  /** Current-month expense outflow (= getMonthSpend totalSpend). Numeric string. */
+  spentThisMonth: string;
+  /** monthlySpendable − spentThisMonth. May be negative. Numeric string. */
+  leftToSpend: string;
+  /** Days from today through end of month, inclusive (NY). Integer ≥ 1. */
+  daysRemaining: number;
+  /** leftToSpend ÷ daysRemaining. MAY BE NEGATIVE — do NOT cap. Numeric string (2dp). */
+  safeToSpendPerDay: string;
+  /** Trailing-30-day expense outflow ÷ 30. Numeric string (2dp). */
+  past30dAvgPerDay: string;
+  status: "on_track" | "at_risk";
+  /** True when monthlyIncome = 0 and no override set → UI shows EmptyState. */
+  noIncomeData: boolean;
+}
+
 // ---------------------------------------------------------------------------
 // Pagination cursor type (internal)
 // ---------------------------------------------------------------------------
@@ -930,7 +953,85 @@ export async function getMonthlyIncomeEstimate(): Promise<IncomeEstimateResult> 
 }
 
 // ---------------------------------------------------------------------------
-// 8. getAccounts — FR-030 / FR-033
+// 8. getBudgetStatus — T-B06
+// ---------------------------------------------------------------------------
+
+/**
+ * Composite safe-to-spend calculation for a given month.
+ *
+ * Combines:
+ *   • getMonthlyIncomeEstimate — override or 3-month trailing average, plus savingsTarget
+ *   • getMonthSpend            — current month expense outflow
+ *   • Trailing-30-day avg      — expense outflow ÷ 30, anchored to today in NY
+ *
+ * safeToSpendPerDay = leftToSpend ÷ daysRemaining.  NOT capped — may be
+ * negative when overspent. The UI styles negative values red.
+ *
+ * @param month - YYYY-MM string (America/New_York)
+ */
+export async function getBudgetStatus(month: string): Promise<BudgetStatusResult> {
+  // todayNY = today's date in America/New_York (YYYY-MM-DD)
+  const now = new Date();
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
+  });
+  const parts = fmt.formatToParts(now);
+  const todayNY = `${parts.find((p) => p.type === "year")!.value}-${parts.find((p) => p.type === "month")!.value}-${parts.find((p) => p.type === "day")!.value}`;
+
+  // trailing30Start = todayNY − 29 days (30-day inclusive window)
+  const todayDate = new Date(`${todayNY}T00:00:00`);
+  const startDate = new Date(todayDate);
+  startDate.setDate(startDate.getDate() - 29);
+  const trailing30Start = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}-${String(startDate.getDate()).padStart(2, "0")}`;
+
+  const [income, spend, past30Rows] = await Promise.all([
+    getMonthlyIncomeEstimate(),
+    getMonthSpend(month),
+    db.execute(sql`
+      SELECT COALESCE(SUM(t.amount), 0) / 30.0 AS avg_per_day
+      FROM transactions t
+      JOIN categories c ON c.id = t.category_id
+      WHERE c."group" = 'expense'
+        AND t.is_excluded = false
+        AND t.amount > 0
+        AND t.date >= ${trailing30Start}::date
+        AND t.date <= ${todayNY}::date
+    `),
+  ]);
+
+  const daysRemaining = daysRemainingInMonth(month, todayNY);
+
+  const incomeNum = parseFloat(income.estimatedIncome);
+  const targetNum = parseFloat(income.savingsTarget);
+  const spentNum = parseFloat(spend.totalSpend);
+  const spendableNum = incomeNum - targetNum;
+  const leftNum = spendableNum - spentNum;
+  const safeNum = leftNum / daysRemaining; // T-B06: NOT capped — may be negative
+  const past30Num = parseFloat(
+    (past30Rows.rows[0] as { avg_per_day: string } | undefined)?.avg_per_day ?? "0",
+  );
+
+  const status: "on_track" | "at_risk" =
+    leftNum <= 0 || past30Num > safeNum ? "at_risk" : "on_track";
+  const noIncomeData = incomeNum === 0 && !income.usingOverride;
+
+  return {
+    month,
+    monthlyIncome: incomeNum.toFixed(2),
+    monthlySpendable: spendableNum.toFixed(2),
+    savingsTarget: targetNum.toFixed(2),
+    spentThisMonth: spentNum.toFixed(2),
+    leftToSpend: leftNum.toFixed(2),
+    daysRemaining,
+    safeToSpendPerDay: safeNum.toFixed(2),
+    past30dAvgPerDay: past30Num.toFixed(2),
+    status,
+    noIncomeData,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// 9. getAccounts — FR-030 / FR-033
 // ---------------------------------------------------------------------------
 
 /**
