@@ -61,7 +61,9 @@ import {
   budgets,
   accountBalanceSnapshots,
   appSettings,
+  recurringStreams,
 } from "@/db/schema";
+import type { RecurringStream } from "@/db/schema";
 import { sql, eq, and, lt, lte, gt, gte, or, ilike, desc, asc } from "drizzle-orm";
 
 // ---------------------------------------------------------------------------
@@ -353,6 +355,67 @@ export interface BudgetStatusResult {
   past30dAvgPerDay: string;
   status: "on_track" | "at_risk";
   /** True when monthlyIncome = 0 and no override set → UI shows EmptyState. */
+  noIncomeData: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// V2 interfaces — Safe-to-Spend v2 model (T-R10)
+// ---------------------------------------------------------------------------
+
+/**
+ * Input to the pure safe-to-spend v2 computation.
+ * All monetary values are natural dollars (positive = money out, except income).
+ */
+export interface BudgetComputeInputV2 {
+  /** SUM(budget.amount) for categories this month; 0 if none set. */
+  budgetedTotal: number;
+  /** Expense outflow in non-bill-stream categories this month. */
+  flexibleSpentThisMonth: number;
+  /** SUM(stream.average_amount) for active bill streams (is_bill=true). */
+  billsTotal: number;
+  /** SUM of bill-stream transaction amounts matched this month. */
+  billsPaidThisMonth: number;
+  /** From getMonthlyIncomeEstimate — override or 3-mo trailing avg. */
+  estimatedIncome: number;
+  /** Income-group inflow this month (positive dollar figure). */
+  earnedThisMonth: number;
+  savingsTarget: number;
+  /** Trailing-30-day flexible expense ÷ 30 (bills excluded). */
+  past30dAvgFlexiblePerDay: number;
+  /** daysRemainingInMonth(month, todayNY) — always ≥ 1. */
+  daysRemaining: number;
+  usingOverride: boolean;
+}
+
+/**
+ * Output of the pure safe-to-spend v2 computation.
+ * All monetary fields are raw numbers; the composite shapes them as strings.
+ */
+export interface BudgetComputeOutputV2 {
+  /** budgetedTotal − flexibleSpentThisMonth (may be < 0). */
+  leftToSpend: number;
+  /** leftToSpend ÷ daysRemaining — NOT capped (product decision 1B). */
+  safeToSpendPerDay: number;
+  /** flexibleSpentThisMonth / budgetedTotal — capped at 1.0 for bar. */
+  spendPct: number;
+  /** MAX(0, billsTotal − billsPaidThisMonth). */
+  billsLeftToPay: number;
+  /** billsPaidThisMonth / billsTotal — capped at 1.0; 1.0 when billsTotal = 0. */
+  billsPct: number;
+  /** flexibleSpentThisMonth + (past30dAvgFlexiblePerDay × daysRemaining). */
+  projectedFlexibleSpend: number;
+  /** billsTotal + projectedFlexibleSpend. */
+  projectedTotalSpend: number;
+  /** estimatedIncome − projectedTotalSpend. May be negative. */
+  projectedSavings: number;
+  savingsStatus: "on_track" | "at_risk";
+  /** (estimatedIncome − savingsTarget − flexibleSpentThisMonth − billsLeftToPay) ÷ daysRemaining. */
+  advicePerDay: number;
+  /** CLAMP(projectedSavings / savingsTarget, 0, 1) — for savings bar height. */
+  savingsBarPct: number;
+  /** budgetedTotal === 0 → Spending card uses v1 fallback formula. */
+  noBudgets: boolean;
+  /** estimatedIncome === 0 && !usingOverride → UI shows EmptyState. */
   noIncomeData: boolean;
 }
 
