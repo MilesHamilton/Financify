@@ -5,6 +5,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db/index";
 import { items } from "@/db/schema";
 import { syncItem } from "@/lib/sync";
+import { decryptToken } from "@/lib/crypto";
+import { syncRecurringStreams } from "@/domain/recurring";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -26,9 +28,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // Fetch all active items
+  // Fetch all active items — include accessTokenEnc for recurring sync (T-R31)
   const activeItems = await db
-    .select({ id: items.id })
+    .select({ id: items.id, accessTokenEnc: items.accessTokenEnc })
     .from(items)
     .where(eq(items.status, "active"));
 
@@ -44,6 +46,30 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       const message = err instanceof Error ? err.message : String(err);
       console.error({ msg: "cron syncItem failed", itemId: item.id, error: errInfo(err) });
       failed.push({ id: item.id, error: message });
+      // Transaction sync did not succeed — skip recurring sync for this item
+      continue;
+    }
+
+    // T-R31: after successful transaction sync, sync recurring streams.
+    // Failures degrade gracefully — a recurring-sync error must NOT fail the
+    // cron job or the transaction sync that already completed above.
+    try {
+      const accessToken = decryptToken(item.accessTokenEnc);
+      const recurringResult = await syncRecurringStreams(accessToken);
+      if (recurringResult.error) {
+        // syncRecurringStreams already logs internally; note item-level failure here
+        console.error({
+          msg: "cron syncRecurringStreams reported error",
+          itemId: item.id,
+        });
+      }
+    } catch (err) {
+      // syncRecurringStreams never throws by contract, but guard defensively
+      console.error({
+        msg: "cron syncRecurringStreams unexpected error",
+        itemId: item.id,
+        error: errInfo(err),
+      });
     }
   }
 
