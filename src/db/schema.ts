@@ -335,7 +335,61 @@ export const appSettings = pgTable(
 );
 
 // ---------------------------------------------------------------------------
-// Inferred row types — $inferSelect (read) and $inferInsert (write) for all 10 tables
+// 11. recurring_streams
+//
+// Populated and updated exclusively via upsert by Lane B (syncRecurringStreams).
+// No createdAt column — this table is managed purely via on-conflict-update;
+// the updatedAt column records when Plaid last confirmed the stream.
+//
+// is_bill default logic (applied at sync time by Lane B, not by the DB default):
+//   Lane B sets is_bill = TRUE  when category IN ('RENT_AND_UTILITIES',
+//                                                  'LOAN_PAYMENTS',
+//                                                  'INSURANCE')
+//   Lane B sets is_bill = FALSE for all other PFC primary categories.
+//   The DB column default (TRUE) is a safety net only — Lane B always
+//   supplies the value explicitly on upsert.
+// ---------------------------------------------------------------------------
+
+export const recurringStreams = pgTable(
+  "recurring_streams",
+  {
+    id: text("id").primaryKey(), // Plaid stream_id
+    accountId: text("account_id")
+      .notNull()
+      .references(() => accounts.id, { onDelete: "cascade" }),
+    description: text("description").notNull(), // merchant / payee name
+    merchantName: text("merchant_name"),
+    category: text("category"), // Plaid PFC primary category (nullable)
+    frequency: text("frequency").notNull(), // "WEEKLY"|"BIWEEKLY"|"SEMI_MONTHLY"|"MONTHLY"|"ANNUALLY"
+    averageAmount: numeric("average_amount", {
+      precision: 14,
+      scale: 2,
+    }).notNull(), // positive = outflow
+    lastAmount: numeric("last_amount", { precision: 14, scale: 2 }), // Plaid last_amount (nullable)
+    lastDate: date("last_date"), // date of last confirmed occurrence (nullable)
+    isActive: boolean("is_active").notNull().default(true),
+    isBill: boolean("is_bill").notNull().default(true), // user-facing "bill" toggle
+    status: text("status").notNull().default("mature"), // "mature"|"early_detection"|"unknown"
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow()
+      .$onUpdate(() => new Date()),
+  },
+  (t) => [
+    index("recurring_streams_active").on(t.isActive, t.isBill),
+    check(
+      "recurring_streams_frequency_check",
+      sql`${t.frequency} IN ('WEEKLY','BIWEEKLY','SEMI_MONTHLY','MONTHLY','ANNUALLY')`,
+    ),
+    check(
+      "recurring_streams_status_check",
+      sql`${t.status} IN ('mature','early_detection','unknown')`,
+    ),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// Inferred row types — $inferSelect (read) and $inferInsert (write) for all 11 tables
 // ---------------------------------------------------------------------------
 
 export type Item = typeof items.$inferSelect;
@@ -368,3 +422,6 @@ export type NewSyncEvent = typeof syncEvents.$inferInsert;
 
 export type AppSettings = typeof appSettings.$inferSelect;
 export type NewAppSettings = typeof appSettings.$inferInsert;
+
+export type RecurringStream = typeof recurringStreams.$inferSelect;
+export type NewRecurringStream = typeof recurringStreams.$inferInsert;

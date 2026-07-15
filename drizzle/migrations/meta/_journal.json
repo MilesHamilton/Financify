@@ -15,6 +15,13 @@
       "when": 1781798231109,
       "tag": "0001_rich_omega_flight",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784149757001,
+      "tag": "0002_normal_rawhide_kid",
+      "breakpoints": true
     }
   ]
 }
