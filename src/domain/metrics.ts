@@ -135,6 +135,25 @@ export function currentNYMonth(): string {
 }
 
 /**
+ * Returns today's date as a YYYY-MM-DD string in America/New_York.
+ *
+ * Extracted from the inline Intl block previously duplicated inside
+ * getBudgetStatus. Using this helper avoids repeated Intl construction and
+ * keeps date-in-NY logic in one place.
+ */
+export function getTodayNY(): string {
+  const now = new Date();
+  const fmt = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = fmt.formatToParts(now);
+  return `${parts.find((p) => p.type === "year")!.value}-${parts.find((p) => p.type === "month")!.value}-${parts.find((p) => p.type === "day")!.value}`;
+}
+
+/**
  * Returns the number of days from todayNY (inclusive) through the last day of
  * the given month (inclusive). Minimum return value: 1 (the last day of the month).
  *
@@ -1145,12 +1164,7 @@ export async function getMonthlyIncomeEstimate(): Promise<IncomeEstimateResult> 
  */
 export async function getBudgetStatus(month: string): Promise<BudgetStatusResult> {
   // todayNY = today's date in America/New_York (YYYY-MM-DD)
-  const now = new Date();
-  const fmt = new Intl.DateTimeFormat("en-US", {
-    timeZone: "America/New_York", year: "numeric", month: "2-digit", day: "2-digit",
-  });
-  const parts = fmt.formatToParts(now);
-  const todayNY = `${parts.find((p) => p.type === "year")!.value}-${parts.find((p) => p.type === "month")!.value}-${parts.find((p) => p.type === "day")!.value}`;
+  const todayNY = getTodayNY();
 
   // trailing30Start = todayNY − 29 days (30-day inclusive window)
   const todayDate = new Date(`${todayNY}T00:00:00`);
