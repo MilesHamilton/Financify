@@ -1509,3 +1509,238 @@ export async function getAccounts(): Promise<AccountsResult> {
     lastSyncedAt: r.lastSyncedAt,
   }));
 }
+
+// ---------------------------------------------------------------------------
+// 10. getRecurringMonth — T-R21
+// ---------------------------------------------------------------------------
+
+/** One bill stream item in the recurring view (TR §3.2). */
+export interface RecurringItem {
+  streamId: string;
+  /** Stream description (merchant/payee display name). */
+  name: string;
+  /** Lucide icon name for the stream category. */
+  icon: string;
+  /** Next expected payment date (YYYY-MM-DD) based on last_date + frequency offset. */
+  dueDate: string | null;
+  /** Matched transaction date (YYYY-MM-DD) when paid; null for upcoming. */
+  paidDate: string | null;
+  /** Numeric string: matched transaction amount for paid; average_amount for upcoming. */
+  amount: string;
+}
+
+/** Result of getRecurringMonth (TR §3.2 / FRD AC-4). */
+export interface RecurringMonthResult {
+  /** SUM of upcoming stream average_amounts. Numeric string (2dp). */
+  leftToPay: string;
+  /** SUM of paid matched transaction amounts. Numeric string (2dp). */
+  paidSoFar: string;
+  /** Active bill streams without a matching transaction this month; sorted by dueDate ASC. */
+  upcoming: RecurringItem[];
+  /** Active bill streams with a matching transaction this month; sorted by paidDate DESC. */
+  paid: RecurringItem[];
+}
+
+// ── Private helpers ──────────────────────────────────────────────────────────
+
+/**
+ * Computes the next expected payment date for a stream given its last known
+ * date and frequency. Returns null when lastDate is null.
+ *
+ * Frequency offsets:
+ *   WEEKLY       → +7 days
+ *   BIWEEKLY     → +14 days
+ *   SEMI_MONTHLY → +15 days (approximation)
+ *   MONTHLY      → +1 calendar month
+ *   ANNUALLY     → +1 calendar year
+ */
+function getNextExpectedDate(
+  lastDate: string | null,
+  frequency: string,
+): string | null {
+  if (!lastDate) return null;
+  const d = new Date(`${lastDate}T00:00:00`);
+  switch (frequency) {
+    case "WEEKLY":
+      d.setDate(d.getDate() + 7);
+      break;
+    case "BIWEEKLY":
+      d.setDate(d.getDate() + 14);
+      break;
+    case "SEMI_MONTHLY":
+      d.setDate(d.getDate() + 15);
+      break;
+    case "MONTHLY":
+      d.setMonth(d.getMonth() + 1);
+      break;
+    case "ANNUALLY":
+      d.setFullYear(d.getFullYear() + 1);
+      break;
+    default:
+      d.setMonth(d.getMonth() + 1); // safe fallback
+  }
+  return [
+    d.getFullYear(),
+    String(d.getMonth() + 1).padStart(2, "0"),
+    String(d.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
+/**
+ * Maps a Plaid PFC primary category to a sensible Lucide icon name.
+ * Callers import the icon by this name from lucide-react.
+ */
+function getStreamIcon(category: string | null): string {
+  switch (category) {
+    case "RENT_AND_UTILITIES":
+      return "Home";
+    case "LOAN_PAYMENTS":
+      return "CreditCard";
+    case "INSURANCE":
+      return "Shield";
+    case "SUBSCRIPTION":
+      return "Repeat";
+    case "FOOD_AND_DRINK":
+      return "UtensilsCrossed";
+    case "TRANSPORTATION":
+      return "Car";
+    default:
+      return "Receipt";
+  }
+}
+
+/**
+ * JS-side matching predicate: returns true when transaction `tx` is matched
+ * to recurring stream `stream` using the IDENTICAL heuristic as the SQL
+ * BILL_MATCH_EXISTS predicate used in getBudgetStatusV2 (T-R20).
+ *
+ * Match conditions (all must be satisfied):
+ *   1. tx.amount within ±20% of stream.averageAmount
+ *   2. If stream.merchantName is set: exact merchant_name equality (case-sensitive,
+ *      matching Postgres = operator on text).
+ *      If stream.merchantName is null: lower(tx.name) === lower(stream.description)
+ *      (mirrors lower(t.name) = lower(rs.description) in SQL).
+ *
+ * Any change to this predicate must be mirrored in BILL_MATCH_EXISTS above.
+ */
+function txMatchesStream(
+  tx: { amount: string; name: string; merchant_name: string | null },
+  stream: RecurringStream,
+): boolean {
+  const avg = parseFloat(stream.averageAmount);
+  const amount = parseFloat(tx.amount);
+  if (isNaN(avg) || isNaN(amount) || avg <= 0) return false;
+  if (amount < avg * 0.8 || amount > avg * 1.2) return false;
+  if (stream.merchantName !== null) {
+    return tx.merchant_name === stream.merchantName;
+  }
+  return tx.name.toLowerCase() === stream.description.toLowerCase();
+}
+
+/**
+ * Returns the paid / upcoming breakdown of active bill streams for a given month.
+ *
+ * "Paid" = active bill stream where a matching expense transaction exists in the
+ * month window (pending INCLUDED, FR-033). "Upcoming" = all others.
+ *
+ * Matching heuristic: amount within ±20% of stream.average_amount AND
+ * merchant/description match (identical to getBudgetStatusV2 SQL predicate).
+ *
+ * Sort order: upcoming ascending by next expected date; paid descending by
+ * matched transaction date.
+ *
+ * @param month - YYYY-MM string (America/New_York)
+ */
+export async function getRecurringMonth(
+  month: string,
+): Promise<RecurringMonthResult> {
+  const { start, end } = toNYMonthBounds(month);
+
+  // Fetch all active bill streams
+  const streams = await db
+    .select()
+    .from(recurringStreams)
+    .where(and(eq(recurringStreams.isActive, true), eq(recurringStreams.isBill, true)));
+
+  if (streams.length === 0) {
+    return { leftToPay: "0.00", paidSoFar: "0.00", upcoming: [], paid: [] };
+  }
+
+  // Fetch all expense transactions in the month window (pending included)
+  type TxRow = {
+    amount: string;
+    date: string;
+    name: string;
+    merchant_name: string | null;
+  };
+
+  const txResult = await db.execute(sql`
+    SELECT t.amount::text, t.date::text, t.name, t.merchant_name
+    FROM transactions t
+    JOIN categories c ON c.id = t.category_id
+    WHERE t.date >= ${start}::date
+      AND t.date <  ${end}::date
+      AND t.amount > 0
+      AND t.is_excluded = false
+      AND c."group" = 'expense'
+  `);
+
+  const txns = txResult.rows as TxRow[];
+
+  // Match each stream to at most one transaction (first match wins)
+  const paid: RecurringItem[] = [];
+  const upcoming: RecurringItem[] = [];
+
+  for (const stream of streams) {
+    const matchedTx = txns.find((tx) => txMatchesStream(tx, stream));
+    const avg = parseFloat(stream.averageAmount);
+    const icon = getStreamIcon(stream.category);
+    const dueDate = getNextExpectedDate(stream.lastDate, stream.frequency);
+
+    if (matchedTx) {
+      paid.push({
+        streamId: stream.id,
+        name: stream.description,
+        icon,
+        dueDate,
+        paidDate: matchedTx.date,
+        amount: parseFloat(matchedTx.amount).toFixed(2),
+      });
+    } else {
+      upcoming.push({
+        streamId: stream.id,
+        name: stream.description,
+        icon,
+        dueDate,
+        paidDate: null,
+        amount: isNaN(avg) ? "0.00" : avg.toFixed(2),
+      });
+    }
+  }
+
+  // Sort upcoming by next expected date ascending (nulls last)
+  upcoming.sort((a, b) => {
+    if (!a.dueDate && !b.dueDate) return 0;
+    if (!a.dueDate) return 1;
+    if (!b.dueDate) return -1;
+    return a.dueDate.localeCompare(b.dueDate);
+  });
+
+  // Sort paid by matched transaction date descending (nulls last)
+  paid.sort((a, b) => {
+    if (!a.paidDate && !b.paidDate) return 0;
+    if (!a.paidDate) return 1;
+    if (!b.paidDate) return -1;
+    return b.paidDate.localeCompare(a.paidDate);
+  });
+
+  const leftToPay = upcoming.reduce((acc, item) => acc + parseFloat(item.amount), 0);
+  const paidSoFar = paid.reduce((acc, item) => acc + parseFloat(item.amount), 0);
+
+  return {
+    leftToPay: leftToPay.toFixed(2),
+    paidSoFar: paidSoFar.toFixed(2),
+    upcoming,
+    paid,
+  };
+}
