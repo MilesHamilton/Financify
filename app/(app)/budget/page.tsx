@@ -1,7 +1,12 @@
 import { DollarSign } from "lucide-react";
 
+// T-R32: switched from getBudgetStatus (v1) to getBudgetStatusV2 (v2 model).
+// getMonthlyIncomeEstimate is kept solely to supply `incomeOverride` to
+// IncomeOverrideEditor — BudgetStatusV2Result does not expose that field
+// (it is internal to the composite query).  Phase 2 can collapse this once
+// the editor is refactored to read from a dedicated settings endpoint.
 import {
-  getBudgetStatus,
+  getBudgetStatusV2,
   getMonthlyIncomeEstimate,
   getAccounts,
   currentNYMonth,
@@ -19,8 +24,10 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function BudgetPage() {
+  const month = currentNYMonth();
   const [budget, income, accounts] = await Promise.all([
-    getBudgetStatus(currentNYMonth()),
+    getBudgetStatusV2(month),
+    // Kept only for incomeOverride — see import comment above.
     getMonthlyIncomeEstimate(),
     getAccounts(),
   ]);
@@ -68,8 +75,10 @@ export default async function BudgetPage() {
 
       {/* Spending plan editors */}
       <Card title="Spending Plan">
-        <SavingsTargetEditor currentTarget={income.savingsTarget} />
+        {/* T-R32: savingsTarget moved from income result → budget v2 result */}
+        <SavingsTargetEditor currentTarget={budget.savingsTarget} />
         <div style={{ borderTop: "1px solid var(--color-border)" }} />
+        {/* T-R32: incomeOverride has no v2 equivalent; still from income result */}
         <IncomeOverrideEditor currentOverride={income.incomeOverride} />
       </Card>
 
@@ -107,12 +116,16 @@ export default async function BudgetPage() {
             </div>
           </div>
 
-          {/* Expandable status card */}
+          {/* Expandable status card
+              T-R32 v1→v2 mapping:
+                status          ← savingsStatus   (renamed in v2)
+                past30dAvgPerDay ← past30dAvgFlexiblePerDay (bills now excluded)
+          */}
           <BudgetStatusCard
-            status={budget.status}
+            status={budget.savingsStatus}
             daysRemaining={budget.daysRemaining}
             leftToSpend={budget.leftToSpend}
-            past30dAvgPerDay={budget.past30dAvgPerDay}
+            past30dAvgPerDay={budget.past30dAvgFlexiblePerDay}
           />
         </Card>
       )}

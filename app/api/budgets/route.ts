@@ -189,6 +189,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
 
     revalidatePath("/spending");
+    // T-R32: also invalidate /budget so budget edits are reflected immediately
+    revalidatePath("/budget");
 
     return NextResponse.json(inserted, { status: 201 });
   } catch (err: unknown) {
