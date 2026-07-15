@@ -419,6 +419,91 @@ export interface BudgetComputeOutputV2 {
   noIncomeData: boolean;
 }
 
+/**
+ * Pure safe-to-spend v2 computation — no DB, no I/O, fully unit-testable.
+ *
+ * Computation order per TR §2.3:
+ *   1. noBudgets / noIncomeData flags
+ *   2. Spending card: leftToSpend (v1 fallback when noBudgets), safeToSpendPerDay, spendPct
+ *   3. Bills card: billsLeftToPay, billsPct
+ *   4. Savings projection: projectedFlexibleSpend → projectedTotalSpend → projectedSavings
+ *      → savingsStatus, savingsBarPct, advicePerDay
+ *
+ * Product decision 1B: leftToSpend, safeToSpendPerDay, and advicePerDay are NOT
+ * capped — they may be negative. The UI renders negatives in red.
+ *
+ * Verify against FRD §4 worked examples:
+ *   AC-1: budgetedTotal=2596, flexible=1291, days=16 → safeToSpendPerDay=81.5625
+ *   AC-3: income=5200, billsTotal=2500, flexible=1291, past30d=42, days=16,
+ *          target=1500, billsPaid=2350 → projectedSavings=737, advicePerDay≈141.19
+ */
+export function computeBudgetStatusV2(
+  input: BudgetComputeInputV2,
+): BudgetComputeOutputV2 {
+  // ── Step 1: flags ─────────────────────────────────────────────────────────
+  const noBudgets = input.budgetedTotal === 0;
+  const noIncomeData = input.estimatedIncome === 0 && !input.usingOverride;
+
+  // ── Step 2: Spending card ─────────────────────────────────────────────────
+  // noBudgets branch uses v1 fallback: income − savingsTarget − flexible
+  const leftToSpend = noBudgets
+    ? input.estimatedIncome - input.savingsTarget - input.flexibleSpentThisMonth
+    : input.budgetedTotal - input.flexibleSpentThisMonth;
+  const safeToSpendPerDay = leftToSpend / input.daysRemaining; // NOT capped (1B)
+
+  const spendPct =
+    input.budgetedTotal > 0
+      ? Math.min(input.flexibleSpentThisMonth / input.budgetedTotal, 1.0)
+      : 0;
+
+  // ── Step 3: Bills card ────────────────────────────────────────────────────
+  const billsLeftToPay = Math.max(0, input.billsTotal - input.billsPaidThisMonth);
+  const billsPct =
+    input.billsTotal > 0
+      ? Math.min(input.billsPaidThisMonth / input.billsTotal, 1.0)
+      : 1.0; // no streams → all "paid"
+
+  // ── Step 4: Savings projection ────────────────────────────────────────────
+  const projectedFlexibleSpend =
+    input.flexibleSpentThisMonth +
+    input.past30dAvgFlexiblePerDay * input.daysRemaining;
+  const projectedTotalSpend = input.billsTotal + projectedFlexibleSpend;
+  const projectedSavings = input.estimatedIncome - projectedTotalSpend;
+
+  const savingsStatus: "on_track" | "at_risk" =
+    projectedSavings >= input.savingsTarget ? "on_track" : "at_risk";
+
+  // savingsBarPct: CLAMP(projectedSavings / savingsTarget, 0, 1)
+  // When savingsTarget = 0 treat ratio as 0 (no target set → empty bar)
+  const rawBarPct =
+    input.savingsTarget > 0 ? projectedSavings / input.savingsTarget : 0;
+  const savingsBarPct = Math.min(Math.max(rawBarPct, 0), 1);
+
+  // advicePerDay: how much flexible spend per day still hits the savings target
+  const advicePerDay =
+    (input.estimatedIncome -
+      input.savingsTarget -
+      input.flexibleSpentThisMonth -
+      billsLeftToPay) /
+    input.daysRemaining;
+
+  return {
+    leftToSpend,
+    safeToSpendPerDay,
+    spendPct,
+    billsLeftToPay,
+    billsPct,
+    projectedFlexibleSpend,
+    projectedTotalSpend,
+    projectedSavings,
+    savingsStatus,
+    advicePerDay,
+    savingsBarPct,
+    noBudgets,
+    noIncomeData,
+  };
+}
+
 // ---------------------------------------------------------------------------
 // Pagination cursor type (internal)
 // ---------------------------------------------------------------------------
