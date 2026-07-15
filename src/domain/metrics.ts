@@ -1221,6 +1221,246 @@ export async function getBudgetStatus(month: string): Promise<BudgetStatusResult
 }
 
 // ---------------------------------------------------------------------------
+// 8b. getBudgetStatusV2 — T-R20
+// ---------------------------------------------------------------------------
+
+/**
+ * Full v2 budget status result for a month.
+ * Monetary fields are numeric strings (2dp). Percentages / counts are raw
+ * numbers for direct use by progress bars and chips.
+ */
+export interface BudgetStatusV2Result {
+  month: string;
+  // ── Income ────────────────────────────────────────────────────────────────
+  /** Estimated monthly income (override or 3-mo avg). Numeric string. */
+  monthlyIncome: string;
+  /** Monthly savings target. Numeric string. */
+  savingsTarget: string;
+  /** Income-group inflow this month (positive). Numeric string. */
+  earnedThisMonth: string;
+  // ── Spending card ─────────────────────────────────────────────────────────
+  /** SUM of latest budgets per category. Numeric string. */
+  budgetedTotal: string;
+  /** Expense outflow excluding bill-matched transactions. Numeric string. */
+  flexibleSpentThisMonth: string;
+  /** budgetedTotal − flexibleSpentThisMonth (may be negative). Numeric string. */
+  leftToSpend: string;
+  /** leftToSpend ÷ daysRemaining. May be negative. Numeric string (2dp). */
+  safeToSpendPerDay: string;
+  /** flexibleSpentThisMonth / budgetedTotal capped at 1.0. Progress bar [0,1]. */
+  spendPct: number;
+  /** Days from today through end of month (NY), inclusive. Integer ≥ 1. */
+  daysRemaining: number;
+  /** Trailing-30-day flexible expense ÷ 30 (bills excluded). Numeric string (2dp). */
+  past30dAvgFlexiblePerDay: string;
+  // ── Bills card ────────────────────────────────────────────────────────────
+  /** SUM(stream.average_amount) for active bill streams. Numeric string. */
+  billsTotal: string;
+  /** SUM of bill-matched transaction amounts this month. Numeric string. */
+  billsPaidThisMonth: string;
+  /** MAX(0, billsTotal − billsPaidThisMonth). Numeric string. */
+  billsLeftToPay: string;
+  /** billsPaidThisMonth / billsTotal capped at 1.0. Progress bar [0,1]. */
+  billsPct: number;
+  // ── Savings projection ────────────────────────────────────────────────────
+  /** flexibleSpentThisMonth + (past30dAvgFlexiblePerDay × daysRemaining). Numeric string. */
+  projectedFlexibleSpend: string;
+  /** billsTotal + projectedFlexibleSpend. Numeric string. */
+  projectedTotalSpend: string;
+  /** estimatedIncome − projectedTotalSpend. May be negative. Numeric string. */
+  projectedSavings: string;
+  savingsStatus: "on_track" | "at_risk";
+  /** CLAMP(projectedSavings / savingsTarget, 0, 1). Bar height [0,1]. */
+  savingsBarPct: number;
+  /** (income − target − flexibleSpent − billsLeftToPay) ÷ daysRemaining. Numeric string (2dp). */
+  advicePerDay: string;
+  // ── Flags ─────────────────────────────────────────────────────────────────
+  /** budgetedTotal === 0 → Spending card uses v1 fallback formula. */
+  noBudgets: boolean;
+  /** estimatedIncome === 0 && !usingOverride → UI shows EmptyState. */
+  noIncomeData: boolean;
+}
+
+/**
+ * Bill-stream matching predicate fragment used in both flexibleSpentThisMonth
+ * and billsPaidThisMonth queries. A transaction matches a bill stream when:
+ *   1. amount within ±20% of stream.average_amount
+ *   2. merchant_name equality when stream.merchant_name is set, else
+ *      lower(t.name) = lower(rs.description) (case-insensitive name match)
+ *   3. rs.is_active = true AND rs.is_bill = true
+ *
+ * This identical predicate is replicated in getRecurringMonth (T-R21) for
+ * consistency. Any change here must be mirrored there.
+ */
+const BILL_MATCH_EXISTS = sql`
+  EXISTS (
+    SELECT 1 FROM recurring_streams rs
+    WHERE rs.is_active = true
+      AND rs.is_bill = true
+      AND t.amount >= rs.average_amount::numeric * 0.8
+      AND t.amount <= rs.average_amount::numeric * 1.2
+      AND (
+        (rs.merchant_name IS NOT NULL AND t.merchant_name = rs.merchant_name)
+        OR (rs.merchant_name IS NULL AND lower(t.name) = lower(rs.description))
+      )
+  )
+`;
+
+/**
+ * Composite safe-to-spend v2 calculation for a given month.
+ *
+ * Combines income estimate, per-category budgets, flexible spend (bills
+ * excluded), bill stream totals, and trailing-30-day spend rate into the
+ * BudgetComputeOutputV2 result. See TR §2–3, §6; FRD §4 AC-1/2/3.
+ *
+ * All spend queries apply BOTH exclusion guards:
+ *   • t.is_excluded = false
+ *   • c.group = 'expense'  (transfer-group rows excluded by definition)
+ * Pending transactions are INCLUDED (FR-033).
+ *
+ * @param month - YYYY-MM string (America/New_York)
+ */
+export async function getBudgetStatusV2(
+  month: string,
+): Promise<BudgetStatusV2Result> {
+  const { start, end } = toNYMonthBounds(month);
+  const firstOfMonth = start; // YYYY-MM-01
+
+  const todayNY = getTodayNY();
+
+  // trailing 30-day window: todayNY − 29 days through todayNY (inclusive = 30 days)
+  const todayDate = new Date(`${todayNY}T00:00:00`);
+  const trailing30StartDate = new Date(todayDate);
+  trailing30StartDate.setDate(trailing30StartDate.getDate() - 29);
+  const trailing30Start = [
+    trailing30StartDate.getFullYear(),
+    String(trailing30StartDate.getMonth() + 1).padStart(2, "0"),
+    String(trailing30StartDate.getDate()).padStart(2, "0"),
+  ].join("-");
+
+  const [income, monthSpend, billsTotalRow, budgetedTotalRow, flexSpendRow, billsPaidRow, past30FlexRow] =
+    await Promise.all([
+      // income estimate + savings target
+      getMonthlyIncomeEstimate(),
+      // earnedThisMonth via existing composite (totalIncome field)
+      getMonthSpend(month),
+      // billsTotal: SUM(average_amount) for active bill streams
+      db.execute(sql`
+        SELECT COALESCE(SUM(average_amount::numeric), 0)::text AS bills_total
+        FROM recurring_streams
+        WHERE is_active = true AND is_bill = true
+      `),
+      // budgetedTotal: sum of the latest effective budget per category
+      db.execute(sql`
+        SELECT COALESCE(SUM(amount), 0)::text AS budgeted_total
+        FROM (
+          SELECT DISTINCT ON (category_id) amount
+          FROM budgets
+          WHERE effective_month <= ${firstOfMonth}::date
+          ORDER BY category_id, effective_month DESC
+        ) latest_budgets
+      `),
+      // flexibleSpentThisMonth: expense outflow NOT matched to any bill stream
+      db.execute(sql`
+        SELECT COALESCE(SUM(t.amount), 0)::text AS flexible_spend
+        FROM transactions t
+        JOIN categories c ON c.id = t.category_id
+        WHERE t.date >= ${start}::date
+          AND t.date <  ${end}::date
+          AND t.amount > 0
+          AND t.is_excluded = false
+          AND c."group" = 'expense'
+          AND NOT ${BILL_MATCH_EXISTS}
+      `),
+      // billsPaidThisMonth: expense outflow matched to a bill stream
+      db.execute(sql`
+        SELECT COALESCE(SUM(t.amount), 0)::text AS bills_paid
+        FROM transactions t
+        JOIN categories c ON c.id = t.category_id
+        WHERE t.date >= ${start}::date
+          AND t.date <  ${end}::date
+          AND t.amount > 0
+          AND t.is_excluded = false
+          AND c."group" = 'expense'
+          AND ${BILL_MATCH_EXISTS}
+      `),
+      // past30dAvgFlexiblePerDay: trailing-30d flexible expense ÷ 30 (bills excluded)
+      db.execute(sql`
+        SELECT COALESCE(SUM(t.amount), 0)::numeric / 30.0 AS avg_flexible_per_day
+        FROM transactions t
+        JOIN categories c ON c.id = t.category_id
+        WHERE c."group" = 'expense'
+          AND t.is_excluded = false
+          AND t.amount > 0
+          AND t.date >= ${trailing30Start}::date
+          AND t.date <= ${todayNY}::date
+          AND NOT ${BILL_MATCH_EXISTS}
+      `),
+    ]);
+
+  const daysRemaining = daysRemainingInMonth(month, todayNY);
+
+  const estimatedIncome = parseFloat(income.estimatedIncome);
+  const savingsTarget = parseFloat(income.savingsTarget);
+  const earnedThisMonth = parseFloat(monthSpend.totalIncome);
+  const billsTotal = parseFloat(
+    (billsTotalRow.rows[0] as { bills_total: string } | undefined)?.bills_total ?? "0",
+  );
+  const budgetedTotal = parseFloat(
+    (budgetedTotalRow.rows[0] as { budgeted_total: string } | undefined)?.budgeted_total ?? "0",
+  );
+  const flexibleSpentThisMonth = parseFloat(
+    (flexSpendRow.rows[0] as { flexible_spend: string } | undefined)?.flexible_spend ?? "0",
+  );
+  const billsPaidThisMonth = parseFloat(
+    (billsPaidRow.rows[0] as { bills_paid: string } | undefined)?.bills_paid ?? "0",
+  );
+  const past30dAvgFlexiblePerDay = parseFloat(
+    (past30FlexRow.rows[0] as { avg_flexible_per_day: string } | undefined)
+      ?.avg_flexible_per_day ?? "0",
+  );
+
+  const computed = computeBudgetStatusV2({
+    budgetedTotal,
+    flexibleSpentThisMonth,
+    billsTotal,
+    billsPaidThisMonth,
+    estimatedIncome,
+    earnedThisMonth,
+    savingsTarget,
+    past30dAvgFlexiblePerDay,
+    daysRemaining,
+    usingOverride: income.usingOverride,
+  });
+
+  return {
+    month,
+    monthlyIncome: estimatedIncome.toFixed(2),
+    savingsTarget: savingsTarget.toFixed(2),
+    earnedThisMonth: earnedThisMonth.toFixed(2),
+    budgetedTotal: budgetedTotal.toFixed(2),
+    flexibleSpentThisMonth: flexibleSpentThisMonth.toFixed(2),
+    leftToSpend: computed.leftToSpend.toFixed(2),
+    safeToSpendPerDay: computed.safeToSpendPerDay.toFixed(2),
+    spendPct: computed.spendPct,
+    daysRemaining,
+    past30dAvgFlexiblePerDay: past30dAvgFlexiblePerDay.toFixed(2),
+    billsTotal: billsTotal.toFixed(2),
+    billsPaidThisMonth: billsPaidThisMonth.toFixed(2),
+    billsLeftToPay: computed.billsLeftToPay.toFixed(2),
+    billsPct: computed.billsPct,
+    projectedFlexibleSpend: computed.projectedFlexibleSpend.toFixed(2),
+    projectedTotalSpend: computed.projectedTotalSpend.toFixed(2),
+    projectedSavings: computed.projectedSavings.toFixed(2),
+    savingsStatus: computed.savingsStatus,
+    savingsBarPct: computed.savingsBarPct,
+    advicePerDay: computed.advicePerDay.toFixed(2),
+    noBudgets: computed.noBudgets,
+    noIncomeData: computed.noIncomeData,
+  };
+}
+
+// ---------------------------------------------------------------------------
 // 9. getAccounts — FR-030 / FR-033
 // ---------------------------------------------------------------------------
 
