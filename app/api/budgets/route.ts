@@ -6,6 +6,7 @@ import { auth } from "../../../auth";
 import { db } from "@/db/index";
 import { budgets } from "@/db/schema";
 import { sql } from "drizzle-orm";
+import { currentNYMonth } from "@/domain/metrics";
 
 export const runtime = "nodejs";
 
@@ -15,13 +16,13 @@ export const runtime = "nodejs";
 
 /**
  * Returns the first day of the current month as a "YYYY-MM-DD" string,
- * computed in UTC (consistent with Next.js server environment).
+ * computed in America/New_York time via currentNYMonth().
+ *
+ * Fixes: 8pm–midnight ET month-attribution drift where UTC-based getUTCMonth()
+ * would attribute transactions to the wrong month during those hours (FRD AC-7).
  */
 function currentMonthFirstDay(): string {
-  const now = new Date();
-  const y = now.getUTCFullYear();
-  const m = String(now.getUTCMonth() + 1).padStart(2, "0");
-  return `${y}-${m}-01`;
+  return `${currentNYMonth()}-01`;
 }
 
 /**
