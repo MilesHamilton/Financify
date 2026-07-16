@@ -16,13 +16,20 @@
  *              All three editor components are reused unchanged from
  *              src/components/settings/BudgetEditor.tsx and
  *              src/components/budget/SpendingPlanEditors.tsx.
- *   ACCOUNT  — one row per linked institution (Landmark icon + name +
- *              accent "Reconnect" link reusing the same /api/plaid/link/update
- *              flow as the existing ReconnectButton components), an
- *              "Add account" row (AddAccountRow) restoring the deleted
- *              LinkAccountButton's /api/plaid/link/start flow to add a new
- *              institution, a visual-only Notifications toggle stub, and a
- *              Log out row reusing the same sign-out flow as LogoutButton.
+ *   ACCOUNT  — one row per linked institution (Landmark icon + name). Rows
+ *              show a "Connected" (positive) label when itemStatus === "active",
+ *              or a status reason (itemStatusLabel) + accent "Reconnect" link
+ *              reusing the same /api/plaid/link/update flow as the existing
+ *              ReconnectButton components when it isn't — mirroring the
+ *              pre-redesign /accounts page's needsReconnect derivation. (Fixed
+ *              2026-07-16: the initial T-R43 rewrite rendered "Reconnect"
+ *              unconditionally for every row regardless of itemStatus, making
+ *              it impossible to tell connected accounts from ones needing
+ *              attention.) Also: an "Add account" row (AddAccountRow)
+ *              restoring the deleted LinkAccountButton's /api/plaid/link/start
+ *              flow to add a new institution, a visual-only Notifications
+ *              toggle stub, and a Log out row reusing the same sign-out flow
+ *              as LogoutButton.
  *
  * Deviation from the pre-redesign page: the "Install prompt" (InstallPrompt /
  * A2HS) section is not part of the prototype's Settings screen and remains
@@ -89,6 +96,23 @@ function SettingsCard({ children }: { children: React.ReactNode }) {
       {children}
     </div>
   );
+}
+
+/**
+ * Mirrors the pre-redesign /accounts page's statusLabel() — maps a Plaid
+ * item's status to a short, user-facing reason for why it needs reconnecting.
+ */
+function itemStatusLabel(status: string): string {
+  switch (status) {
+    case "login_required":
+      return "Login required";
+    case "pending_disconnect":
+      return "Expiring soon";
+    case "revoked":
+      return "Revoked";
+    default:
+      return "Needs attention";
+  }
 }
 
 function StaticRow({
@@ -236,22 +260,42 @@ export default async function SettingsPage() {
             />
           </div>
         ) : (
-          itemRows.map((item) => (
-            <StaticRow key={item.itemId}>
-              <Landmark
-                size={17}
-                aria-hidden="true"
-                style={{ color: "var(--color-text-muted)", flexShrink: 0 }}
-              />
-              <span
-                className="flex-1 truncate text-[15px] font-medium"
-                style={{ color: "var(--color-text)" }}
-              >
-                {item.institutionName}
-              </span>
-              <ReconnectLink itemId={item.itemId} />
-            </StaticRow>
-          ))
+          itemRows.map((item) => {
+            const needsReconnect = item.itemStatus !== "active";
+            return (
+              <StaticRow key={item.itemId}>
+                <Landmark
+                  size={17}
+                  aria-hidden="true"
+                  style={{ color: "var(--color-text-muted)", flexShrink: 0 }}
+                />
+                <span
+                  className="flex-1 truncate text-[15px] font-medium"
+                  style={{ color: "var(--color-text)" }}
+                >
+                  {item.institutionName}
+                </span>
+                {needsReconnect ? (
+                  <div className="flex flex-col items-end gap-1">
+                    <span
+                      className="text-xs font-medium"
+                      style={{ color: "var(--color-negative)" }}
+                    >
+                      {itemStatusLabel(item.itemStatus)}
+                    </span>
+                    <ReconnectLink itemId={item.itemId} />
+                  </div>
+                ) : (
+                  <span
+                    className="text-sm font-medium"
+                    style={{ color: "var(--color-positive)" }}
+                  >
+                    Connected
+                  </span>
+                )}
+              </StaticRow>
+            );
+          })
         )}
 
         <AddAccountRow />
