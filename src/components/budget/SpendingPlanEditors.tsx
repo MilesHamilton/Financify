@@ -1,6 +1,187 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { CalendarClock, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { BudgetEditor } from "@/components/settings/BudgetEditor";
+
+// ---------------------------------------------------------------------------
+// MonthHeaderPills — pill pair that selects the page's month (?month=YYYY-MM)
+// ---------------------------------------------------------------------------
+
+/** Decrement or increment a YYYY-MM string by one month. */
+function shiftMonth(month: string, delta: -1 | 1): string {
+  const [yearStr, monthStr] = month.split("-");
+  let year = parseInt(yearStr, 10);
+  let mon = parseInt(monthStr, 10) + delta;
+  if (mon > 12) {
+    mon = 1;
+    year += 1;
+  } else if (mon < 1) {
+    mon = 12;
+    year -= 1;
+  }
+  return `${year}-${String(mon).padStart(2, "0")}`;
+}
+
+interface MonthHeaderPillsProps {
+  /** Selected month, YYYY-MM. */
+  month: string;
+  /** Display label — "This Month" for the current month, else "July 2026". */
+  label: string;
+  /** Earliest selectable month (prev disabled at/below this). */
+  minMonth: string;
+  /** Latest selectable month (next disabled at/above this). */
+  maxMonth: string;
+}
+
+export function MonthHeaderPills({
+  month,
+  label,
+  minMonth,
+  maxMonth,
+}: MonthHeaderPillsProps) {
+  const router = useRouter();
+  const atMin = month <= minMonth;
+  const atMax = month >= maxMonth;
+
+  const go = (target: string) => router.replace(`/budget?month=${target}`);
+
+  return (
+    <div className="flex gap-2">
+      {/* Month label pill */}
+      <div className="flex flex-1 items-center gap-2.5 rounded-[var(--radius-tile)] bg-[var(--color-surface)] px-4 py-[13px]">
+        <CalendarClock size={18} style={{ color: "var(--color-text)" }} aria-hidden />
+        <span className="text-[15px] font-semibold text-[var(--color-text)]">
+          {label}
+        </span>
+      </div>
+
+      {/* Prev / next chevrons */}
+      <div className="flex items-center rounded-[var(--radius-tile)] bg-[var(--color-surface)] px-1">
+        <button
+          type="button"
+          aria-label="Previous month"
+          disabled={atMin}
+          onClick={() => !atMin && go(shiftMonth(month, -1))}
+          className="flex h-11 w-10 items-center justify-center disabled:cursor-not-allowed"
+        >
+          <ChevronLeft
+            size={16}
+            style={{
+              color: atMin ? "var(--color-dashed-line)" : "var(--color-text)",
+            }}
+          />
+        </button>
+        <button
+          type="button"
+          aria-label="Next month"
+          disabled={atMax}
+          onClick={() => !atMax && go(shiftMonth(month, 1))}
+          className="flex h-11 w-10 items-center justify-center disabled:cursor-not-allowed"
+        >
+          <ChevronRight
+            size={16}
+            style={{
+              color: atMax ? "var(--color-dashed-line)" : "var(--color-text)",
+            }}
+          />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// AddBudgetPanel — "Add Budget" link → sheet with per-category budget editors
+//                  plus the savings-target and income editors.
+// ---------------------------------------------------------------------------
+
+export interface PanelCategory {
+  id: string;
+  label: string;
+  /** Current budget for this category (numeric string) or null if unset. */
+  budget: string | null;
+}
+
+interface AddBudgetPanelProps {
+  categories: PanelCategory[];
+  currentTarget: string;
+  currentOverride: string | null;
+}
+
+export function AddBudgetPanel({
+  categories,
+  currentTarget,
+  currentOverride,
+}: AddBudgetPanelProps) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="text-sm font-semibold text-[var(--color-text)] underline underline-offset-[3px]"
+      >
+        Add Budget
+      </button>
+
+      {open ? (
+        <div
+          className="fixed inset-0 z-50 flex flex-col justify-end bg-black/60"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Manage budgets"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="max-h-[85vh] overflow-y-auto rounded-t-[var(--radius-card)] bg-[var(--color-surface)] px-4 pb-8 pt-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <h2 className="text-[17px] font-bold text-[var(--color-text)]">
+                Manage Budgets
+              </h2>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-surface-2)]"
+              >
+                <X size={16} style={{ color: "var(--color-text-muted)" }} />
+              </button>
+            </div>
+
+            {/* Category budgets */}
+            <p className="mb-1 mt-2 text-xs font-bold uppercase tracking-[1.2px] text-[var(--color-text-muted)]">
+              Category Budgets
+            </p>
+            <div className="divide-y" style={{ borderColor: "var(--color-border)" }}>
+              {categories.map((c) => (
+                <BudgetEditor
+                  key={c.id}
+                  categoryId={c.id}
+                  categoryLabel={c.label}
+                  currentBudget={c.budget}
+                />
+              ))}
+            </div>
+
+            {/* Income + savings target */}
+            <p className="mb-1 mt-6 text-xs font-bold uppercase tracking-[1.2px] text-[var(--color-text-muted)]">
+              Income &amp; Savings
+            </p>
+            <div className="divide-y" style={{ borderColor: "var(--color-border)" }}>
+              <SavingsTargetEditor currentTarget={currentTarget} />
+              <IncomeOverrideEditor currentOverride={currentOverride} />
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
+  );
+}
 
 // ---------------------------------------------------------------------------
 // SavingsTargetEditor
