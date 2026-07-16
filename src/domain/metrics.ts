@@ -137,9 +137,9 @@ export function currentNYMonth(): string {
 /**
  * Returns today's date as a YYYY-MM-DD string in America/New_York.
  *
- * Extracted from the inline Intl block previously duplicated inside
- * getBudgetStatus. Using this helper avoids repeated Intl construction and
- * keeps date-in-NY logic in one place.
+ * Extracted from the inline Intl block previously duplicated inside the
+ * budget-status calculation. Using this helper avoids repeated Intl
+ * construction and keeps date-in-NY logic in one place.
  */
 export function getTodayNY(): string {
   const now = new Date();
@@ -326,55 +326,6 @@ export interface IncomeEstimateResult {
   savingsTarget: string;
   /** True when the override is active (estimatedIncome reflects the override). */
   usingOverride: boolean;
-}
-
-export interface BudgetComputeInput {
-  monthlyIncome: number;
-  savingsTarget: number;
-  spentThisMonth: number;
-  daysRemaining: number;     // always ≥ 1
-  past30dAvgPerDay: number;
-  usingOverride: boolean;
-}
-export interface BudgetComputeOutput {
-  monthlySpendable: number;
-  leftToSpend: number;
-  safeToSpendPerDay: number; // NOT capped — may be negative (product decision 1B)
-  status: "on_track" | "at_risk";
-  noIncomeData: boolean;
-}
-/** Pure safe-to-spend math — no DB, no I/O, fully unit-testable. */
-export function computeBudgetStatus(input: BudgetComputeInput): BudgetComputeOutput {
-  const monthlySpendable = input.monthlyIncome - input.savingsTarget;
-  const leftToSpend = monthlySpendable - input.spentThisMonth;
-  const safeToSpendPerDay = leftToSpend / input.daysRemaining; // NOT capped (1B)
-  const status: "on_track" | "at_risk" =
-    leftToSpend <= 0 || input.past30dAvgPerDay > safeToSpendPerDay ? "at_risk" : "on_track";
-  const noIncomeData = input.monthlyIncome === 0 && !input.usingOverride;
-  return { monthlySpendable, leftToSpend, safeToSpendPerDay, status, noIncomeData };
-}
-
-/** T-B06 — full safe-to-spend budget status for a month. */
-export interface BudgetStatusResult {
-  month: string;
-  /** monthlyIncome after applying any override. Numeric string. */
-  monthlyIncome: string;
-  /** monthlyIncome − savingsTarget. May be negative. Numeric string. */
-  monthlySpendable: string;
-  savingsTarget: string;
-  /** Current-month expense outflow (= getMonthSpend totalSpend). Numeric string. */
-  spentThisMonth: string;
-  /** monthlySpendable − spentThisMonth. May be negative. Numeric string. */
-  leftToSpend: string;
-  /** Days from today through end of month, inclusive (NY). Integer ≥ 1. */
-  daysRemaining: number;
-  /** leftToSpend ÷ daysRemaining. MAY BE NEGATIVE — do NOT cap. Numeric string (2dp). */
-  safeToSpendPerDay: string;
-  /** Trailing-30-day expense outflow ÷ 30. Numeric string (2dp). */
-  past30dAvgPerDay: string;
-  status: "on_track" | "at_risk";
-  /** True when monthlyIncome = 0 and no override set → UI shows EmptyState. */
-  noIncomeData: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -1146,82 +1097,7 @@ export async function getMonthlyIncomeEstimate(): Promise<IncomeEstimateResult> 
 }
 
 // ---------------------------------------------------------------------------
-// 8. getBudgetStatus — T-B06
-// ---------------------------------------------------------------------------
-
-/**
- * Composite safe-to-spend calculation for a given month.
- *
- * Combines:
- *   • getMonthlyIncomeEstimate — override or 3-month trailing average, plus savingsTarget
- *   • getMonthSpend            — current month expense outflow
- *   • Trailing-30-day avg      — expense outflow ÷ 30, anchored to today in NY
- *
- * safeToSpendPerDay = leftToSpend ÷ daysRemaining.  NOT capped — may be
- * negative when overspent. The UI styles negative values red.
- *
- * @param month - YYYY-MM string (America/New_York)
- */
-export async function getBudgetStatus(month: string): Promise<BudgetStatusResult> {
-  // todayNY = today's date in America/New_York (YYYY-MM-DD)
-  const todayNY = getTodayNY();
-
-  // trailing30Start = todayNY − 29 days (30-day inclusive window)
-  const todayDate = new Date(`${todayNY}T00:00:00`);
-  const startDate = new Date(todayDate);
-  startDate.setDate(startDate.getDate() - 29);
-  const trailing30Start = `${startDate.getFullYear()}-${String(startDate.getMonth() + 1).padStart(2, "0")}-${String(startDate.getDate()).padStart(2, "0")}`;
-
-  const [income, spend, past30Rows] = await Promise.all([
-    getMonthlyIncomeEstimate(),
-    getMonthSpend(month),
-    db.execute(sql`
-      SELECT COALESCE(SUM(t.amount), 0) / 30.0 AS avg_per_day
-      FROM transactions t
-      JOIN categories c ON c.id = t.category_id
-      WHERE c."group" = 'expense'
-        AND t.is_excluded = false
-        AND t.amount > 0
-        AND t.date >= ${trailing30Start}::date
-        AND t.date <= ${todayNY}::date
-    `),
-  ]);
-
-  const daysRemaining = daysRemainingInMonth(month, todayNY);
-
-  const incomeNum = parseFloat(income.estimatedIncome);
-  const targetNum = parseFloat(income.savingsTarget);
-  const spentNum = parseFloat(spend.totalSpend);
-  const past30Num = parseFloat(
-    (past30Rows.rows[0] as { avg_per_day: string } | undefined)?.avg_per_day ?? "0",
-  );
-
-  const computed = computeBudgetStatus({
-    monthlyIncome: incomeNum,
-    savingsTarget: targetNum,
-    spentThisMonth: spentNum,
-    daysRemaining,
-    past30dAvgPerDay: past30Num,
-    usingOverride: income.usingOverride,
-  });
-
-  return {
-    month,
-    monthlyIncome: incomeNum.toFixed(2),
-    monthlySpendable: computed.monthlySpendable.toFixed(2),
-    savingsTarget: targetNum.toFixed(2),
-    spentThisMonth: spentNum.toFixed(2),
-    leftToSpend: computed.leftToSpend.toFixed(2),
-    daysRemaining,
-    safeToSpendPerDay: computed.safeToSpendPerDay.toFixed(2),
-    past30dAvgPerDay: past30Num.toFixed(2),
-    status: computed.status,
-    noIncomeData: computed.noIncomeData,
-  };
-}
-
-// ---------------------------------------------------------------------------
-// 8b. getBudgetStatusV2 — T-R20
+// 8. getBudgetStatusV2 — T-R20
 // ---------------------------------------------------------------------------
 
 /**
