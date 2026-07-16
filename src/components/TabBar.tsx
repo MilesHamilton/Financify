@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Wallet, Repeat, Settings } from "lucide-react";
+import { Wallet, LayoutDashboard, Repeat, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface TabItem {
@@ -11,9 +11,11 @@ interface TabItem {
   icon: React.ElementType;
 }
 
+// Order matches the prototype (dc.html TABS array) and FRD §2:
+// Budget, Dashboard, Recurring, Settings.
 const TABS: TabItem[] = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/budget", label: "Budget", icon: Wallet },
+  { href: "/", label: "Dashboard", icon: LayoutDashboard },
   { href: "/recurring", label: "Recurring", icon: Repeat },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
