@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400..700&display=swap">
+<style>
+  html,body{margin:0;padding:0;background:#05070b;}
+  a{color:#6c8cff;text-decoration:none;} a:hover{text-decoration:underline;}
+  ::-webkit-scrollbar{display:none;}
+  *{scrollbar-width:none;}
+</style>
+</helmet>
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:#05070b;padding:28px;font-family:'DM Sans',system-ui,sans-serif;">
+<x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+<div style="height:100%;display:flex;flex-direction:column;background:#0b0e14;color:#f2f4f8;font-family:'DM Sans',system-ui,sans-serif;">
+  <div style="height:60px;flex-shrink:0;"></div>
+  <div style="flex:1;overflow-y:auto;padding:4px 16px 20px;display:flex;flex-direction:column;gap:16px;">
+
+    <sc-if value="{{ isBudget }}" hint-placeholder-val="{{ true }}">
+      <div data-screen-label="Budget">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 2px 14px;">
+          <div style="font-size:28px;font-weight:700;letter-spacing:-0.5px;">Budget</div>
+          <button onClick="{{ onSync }}" style="display:flex;align-items:center;gap:6px;background:#151a23;border:1px solid #232b38;border-radius:999px;padding:6px 12px;color:#8b93a3;font-size:12px;font-family:inherit;cursor:pointer;" style-hover="border-color:#2e3949;color:#c6ccd8;">
+            <span style="display:block;width:12px;height:12px;background:currentColor;mask:url(https://unpkg.com/lucide-static/icons/refresh-cw.svg) center / contain no-repeat;-webkit-mask:url(https://unpkg.com/lucide-static/icons/refresh-cw.svg) center / contain no-repeat;"></span>
+            {{ syncLabel }}
+          </button>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <div style="flex:1;display:flex;align-items:center;gap:10px;background:#151a23;border-radius:14px;padding:13px 16px;">
+            <span style="display:block;width:18px;height:18px;background:#f2f4f8;mask:url(https://unpkg.com/lucide-static/icons/calendar-clock.svg) center / contain no-repeat;-webkit-mask:url(https://unpkg.com/lucide-static/icons/calendar-clock.svg) center / contain no-repeat;"></span>
+            <span style="font-size:15px;font-weight:600;">{{ monthLabel }}</span>
+          </div>
+          <div style="display:flex;align-items:center;background:#151a23;border-radius:14px;padding:0 4px;">
+            <button onClick="{{ prevMonth }}" style="width:40px;height:44px;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;" style-hover="opacity:0.7;">
+              <span style="display:block;width:16px;height:16px;background:{{ prevColor }};mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center / contain no-repeat;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-left.svg) center / contain no-repeat;"></span>
+            </button>
+            <button onClick="{{ nextMonth }}" style="width:40px;height:44px;background:none;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;" style-hover="opacity:0.7;">
+              <span style="display:block;width:16px;height:16px;background:{{ nextColor }};mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center / contain no-repeat;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center / contain no-repeat;"></span>
+            </button>
+          </div>
+        </div>
+
+        <div style="background:#151a23;border-radius:16px;padding:18px 16px;margin-top:16px;">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between;">
+            <span style="display:block;width:22px;height:22px;background:#f2f4f8;mask:url(https://unpkg.com/lucide-static/icons/wallet.svg) center / contain no-repeat;-webkit-mask:url(https://unpkg.com/lucide-static/icons/wallet.svg) center / contain no-repeat;"></span>
+            <sc-if value="{{ isCurrent }}" hint-placeholder-val="{{ true }}">
+              <span style="background:rgba(54,201,142,0.16);color:#7fe0b8;font-size:13px;font-weight:600;border-radius:999px;padding:5px 12px;">{{ dayChip }}</span>
+            </sc-if>
+          </div>
+          <div style="color:#8b93a3;font-size:14px;margin-top:10px;">Spending</div>
+          <div style="font-size:24px;font-weight:700;letter-spacing:-0.5px;margin-top:2px;">{{ leftToSpend }}</div>
+          <div style="height:8px;border-radius:999px;background:#1d2430;margin-top:12px;overflow:hidden;">
+            <div style="height:100%;border-radius:999px;background:#6c8cff;width:{{ spendPct }};"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;color:#8b93a3;font-size:13px;margin-top:8px;">
+            <span>{{ spentLabel }}</span><span>{{ budgetedLabel }}</span>
+          </div>
+        </div>
+
+        <div style="background:#151a23;border-radius:16px;padding:18px 16px;margin-top:12px;">
+          <span style="display:block;width:22px;height:22px;background:#f2f4f8;mask:url(https://unpkg.com/lucide-static/icons/receipt.svg) center / contain no-repeat;-webkit-mask:url(https://unpkg.com/lucide-static/icons/receipt.svg) center / contain no-repeat;"></span>
+          <div style="color:#8b93a3;font-size:14px;margin-top:10px;">Bills &amp; Utilities</div>
+          <div style="font-size:24px;font-weight:700;letter-spacing:-0.5px;margin-top:2px;">{{ billsHeadline }}</div>
+          <div style="height:8px;border-radius:999px;background:#1d2430;margin-top:12px;overflow:hidden;">
+            <div style="height:100%;border-radius:999px;background:#6c8cff;width:{{ billsPct }};"></div>
+          </div>
+          <div style="color:#8b93a3;font-size:13px;margin-top:8px;">{{ billsPaidLabel }}</div>
+        </div>
+
+        <div style="color:#8b93a3;font-size:12px;font-weight:700;letter-spacing:1.2px;margin:22px 2px 10px;">SAVINGS TARGET</div>
+        <div style="background:#151a23;border-radius:16px;overflow:hidden;">
+          <div style="padding:18px 16px;display:flex;gap:12px;">
+            <div style="flex:1;">
+              <div style="display:flex;align-items:center;justify-content:space-between;">
+                <span style="display:block;width:22px;height:22px;background:#f2f4f8;mask:url(https://unpkg.com/lucide-static/icons/piggy-bank.svg) center / contain no-repeat;-webkit-mask:url(https://unpkg.com/lucide-static/icons/piggy-bank.svg) center / contain no-repeat;"></span>
+              </div>
+              <div style="color:#8b93a3;font-size:14px;margin-top:10px;">{{ savingsCaption }}</div>
+              <div style="font-size:34px;font-weight:700;letter-spacing:-1px;margin-top:2px;">{{ projectedLabel }}</div>
+              <div style="color:#8b93a3;font-size:13px;margin-top:2px;">{{ ofTargetLabel }}</div>
+            </div>
+            <div style="width:130px;display:flex;flex-direction:column;align-items:flex-end;gap:8px;">
+              <span style="background:{{ riskBg }};color:{{ riskFg }};font-size:13px;font-weight:600;border-radius:999px;padding:5px 12px;display:flex;align-items:center;gap:5px;">
+                {{ riskLabel }}
+                <span style="display:block;width:13px;height:13px;background:currentColor;mask:url(https://unpkg.com/lucide-static/icons/info.svg) center / contain no-repeat;-webkit-mask:url(https://unpkg.com/lucide-static/icons/info.svg) center / contain no-repeat;"></span>
+              </span>
+              <div style="flex:1;width:100%;position:relative;min-height:78px;">
+                <div style="position:absolute;top:6px;left:0;right:0;display:flex;align-items:center;gap:6px;">
+                  <span style="color:#8b93a3;font-size:11px;flex-shrink:0;">{{ targetTick }}</span>
+                  <div style="flex:1;border-top:2px dashed #3a4356;"></div>
+                </div>
+                <span style="position:absolute;bottom:0;left:0;color:#8b93a3;font-size:11px;">$0</span>
+                <div style="position:absolute;bottom:0;right:8px;width:56px;background:#aebcf5;border-radius:8px 8px 0 0;border:2px solid #6c8cff;border-bottom:none;height:{{ savingsBarH }};"></div>
+              </div>
+            </div>
+          </div>
+          <sc-if value="{{ showAdvice }}" hint-placeholder-val="{{ true }}">
+            <div style="border-top:1px solid #232b38;padding:14px 16px;">
+              <div style="font-size:15px;font-weight:700;">{{ adviceTitle }}</div>
+              <div style="color:#8b93a3;font-size:14px;line-height:1.45;margin-top:4px;">{{ adviceBody }}</div>
+            </div>
+          </sc-if>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;margin:22px 2px 10px;">
+          <span style="color:#8b93a3;font-size:12px;font-weight:700;letter-spacing:1.2px;">CATEGORY BUDGETS</span>
+          <a href="#" style="color:#f2f4f8;font-size:14px;font-weight:600;text-decoration:underline;text-underline-offset:3px;">Add Budget</a>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:8px;">
+          <sc-for list="{{ catRows }}" as="r" hint-placeholder-count="4">
+            <div style="background:#151a23;border-radius:16px;padding:14px 16px;display:flex;align-items:center;gap:12px;">
+              <div style="width:40px;height:40px;border-radius:999px;background:#1d2430;border:2px solid {{ r.color }};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <span style="display:block;width:18px;height:18px;background:{{ r.color }};mask:url({{ r.icon }}) center / contain no-repeat;-webkit-mask:url({{ r.icon }}) center / contain no-repeat;"></span>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;">
+                  <span style="font-size:15px;font-weight:600;">{{ r.name }}</span>
+                  <span style="font-size:15px;font-weight:700;">{{ r.spentLabel }}</span>
+                </div>
+                <div style="height:6px;border-radius:999px;background:#1d2430;margin-top:8px;overflow:hidden;">
+                  <div style="height:100%;border-radius:999px;background:{{ r.color }};width:{{ r.pct }};"></div>
+                </div>
+                <div style="color:#8b93a3;font-size:12px;margin-top:6px;">{{ r.leftLabel }}</div>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isDashboard }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Dashboard">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 2px 14px;">
+          <div style="font-size:28px;font-weight:700;letter-spacing:-0.5px;">Dashboard</div>
+          <button onClick="{{ onSync }}" style="display:flex;align-items:center;gap:6px;background:#151a23;border:1px solid #232b38;border-radius:999px;padding:6px 12px;color:#8b93a3;font-size:12px;font-family:inherit;cursor:pointer;" style-hover="border-color:#2e3949;color:#c6ccd8;">
+            <span style="display:block;width:12px;height:12px;background:currentColor;mask:url(https://unpkg.com/lucide-static/icons/refresh-cw.svg) center / contain no-repeat;-webkit-mask:url(https://unpkg.com/lucide-static/icons/refresh-cw.svg) center / contain no-repeat;"></span>
+            {{ syncLabel }}
+          </button>
+        </div>
+        <div style="display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin:0 -16px;padding-left:16px;padding-right:16px;">
+          <sc-for list="{{ barMonths }}" as="m" hint-placeholder-count="7">
+            <button onClick="{{ m.onTap }}" style="flex-shrink:0;width:66px;background:#151a23;border:2px solid {{ m.border }};border-radius:14px;padding:10px 8px 8px;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer;font-family:inherit;" style-hover="border-color:#3a4356;">
+              <div style="display:flex;align-items:flex-end;gap:4px;height:48px;">
+                <div style="width:10px;border-radius:3px 3px 0 0;background:#6c8cff;height:{{ m.incH }};"></div>
+                <div style="width:10px;border-radius:3px 3px 0 0;background:#3a4356;height:{{ m.spdH }};"></div>
+              </div>
+              <span style="color:{{ m.labelColor }};font-size:12px;font-weight:600;">{{ m.label }}</span>
+            </button>
+          </sc-for>
+        </div>
+        <div style="display:flex;justify-content:center;gap:16px;margin-top:8px;color:#8b93a3;font-size:12px;">
+          <span style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:999px;background:#6c8cff;display:inline-block;"></span>Income</span>
+          <span style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:999px;background:#3a4356;display:inline-block;"></span>Total Spend</span>
+        </div>
+
+        <div style="background:#151a23;border-radius:16px;padding:18px 16px;margin-top:16px;">
+          <div style="display:flex;align-items:center;gap:18px;">
+            <div style="position:relative;width:140px;height:140px;flex-shrink:0;">
+              <svg width="140" height="140" viewBox="0 0 140 140" style="transform:rotate(-90deg);">
+                <circle cx="70" cy="70" r="55" fill="none" stroke="#1d2430" stroke-width="16"></circle>
+                <sc-for list="{{ donutSegs }}" as="s" hint-placeholder-count="5">
+                  <circle cx="70" cy="70" r="55" fill="none" stroke="{{ s.color }}" stroke-width="16" stroke-dasharray="{{ s.dash }}" stroke-dashoffset="{{ s.offset }}"></circle>
+                </sc-for>
+              </svg>
+              <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                <span style="color:#8b93a3;font-size:11px;">Spent</span>
+                <span style="font-size:19px;font-weight:700;letter-spacing:-0.5px;">{{ totalSpendLabel }}</span>
+              </div>
+            </div>
+            <div style="flex:1;display:flex;flex-direction:column;gap:12px;">
+              <div>
+                <div style="color:#8b93a3;font-size:12px;">Income</div>
+                <div style="font-size:17px;font-weight:700;color:#36c98e;">{{ incomeLabel }}</div>
+              </div>
+              <div>
+                <div style="color:#8b93a3;font-size:12px;">Total Spend</div>
+                <div style="font-size:17px;font-weight:700;">{{ totalSpendLabel }}</div>
+              </div>
+              <div>
+                <div style="color:#8b93a3;font-size:12px;">Net Income</div>
+                <div style="font-size:17px;font-weight:700;color:{{ netColor }};">{{ netLabel }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div style="color:#8b93a3;font-size:12px;font-weight:700;letter-spacing:1.2px;margin:22px 2px 10px;">BY CATEGORY</div>
+        <div style="background:#151a23;border-radius:16px;padding:6px 16px;">
+          <sc-for list="{{ listRows }}" as="r" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid {{ r.divider }};">
+              <span style="width:10px;height:10px;border-radius:3px;background:{{ r.color }};flex-shrink:0;"></span>
+              <span style="flex:1;font-size:14px;font-weight:500;">{{ r.name }}</span>
+              <span style="color:#8b93a3;font-size:12px;">{{ r.share }}</span>
+              <span style="font-size:14px;font-weight:700;min-width:64px;text-align:right;">{{ r.spentLabel }}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <sc-if value="{{ showBalance }}" hint-placeholder-val="{{ true }}">
+          <div style="background:#151a23;border-radius:16px;padding:18px 16px;margin-top:16px;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <div>
+                <div style="color:#8b93a3;font-size:12px;">Cash balance</div>
+                <div style="font-size:20px;font-weight:700;letter-spacing:-0.5px;">{{ balEndLabel }}</div>
+              </div>
+              <span style="color:{{ balDeltaColor }};font-size:13px;font-weight:600;">{{ balDeltaLabel }}</span>
+            </div>
+            <svg width="100%" height="110" viewBox="0 0 340 110" preserveAspectRatio="none" style="display:block;margin-top:10px;">
+              <path d="{{ balArea }}" fill="rgba(108,140,255,0.12)"></path>
+              <path d="{{ balPath }}" fill="none" stroke="#6c8cff" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"></path>
+            </svg>
+            <div style="display:flex;justify-content:space-between;color:#8b93a3;font-size:11px;margin-top:6px;">
+              <span>{{ balStartTick }}</span><span>{{ balEndTick }}</span>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isRecurring }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Recurring">
+        <div style="font-size:28px;font-weight:700;letter-spacing:-0.5px;padding:6px 2px 14px;">Recurring</div>
+        <div style="background:#151a23;border-radius:16px;padding:18px 16px;display:flex;gap:12px;">
+          <div style="flex:1;">
+            <div style="color:#8b93a3;font-size:13px;">Left to pay in July</div>
+            <div style="font-size:26px;font-weight:700;letter-spacing:-0.5px;margin-top:2px;">$150.00</div>
+          </div>
+          <div style="width:1px;background:#232b38;"></div>
+          <div style="flex:1;">
+            <div style="color:#8b93a3;font-size:13px;">Paid so far</div>
+            <div style="font-size:26px;font-weight:700;letter-spacing:-0.5px;margin-top:2px;color:#36c98e;">$2,350</div>
+          </div>
+        </div>
+        <div style="color:#8b93a3;font-size:12px;font-weight:700;letter-spacing:1.2px;margin:22px 2px 10px;">UPCOMING</div>
+        <div style="background:#151a23;border-radius:16px;padding:6px 16px;">
+          <sc-for list="{{ upcoming }}" as="b" hint-placeholder-count="5">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid {{ b.divider }};">
+              <div style="width:38px;height:38px;border-radius:12px;background:#1d2430;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <span style="display:block;width:17px;height:17px;background:#8b93a3;mask:url({{ b.icon }}) center / contain no-repeat;-webkit-mask:url({{ b.icon }}) center / contain no-repeat;"></span>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:15px;font-weight:600;">{{ b.name }}</div>
+                <div style="color:#8b93a3;font-size:12px;margin-top:1px;">{{ b.date }}</div>
+              </div>
+              <span style="font-size:15px;font-weight:700;">{{ b.amt }}</span>
+            </div>
+          </sc-for>
+        </div>
+        <div style="color:#8b93a3;font-size:12px;font-weight:700;letter-spacing:1.2px;margin:22px 2px 10px;">PAID THIS MONTH</div>
+        <div style="background:#151a23;border-radius:16px;padding:6px 16px;">
+          <sc-for list="{{ paid }}" as="b" hint-placeholder-count="6">
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid {{ b.divider }};">
+              <div style="width:38px;height:38px;border-radius:12px;background:#1d2430;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                <span style="display:block;width:17px;height:17px;background:#36c98e;mask:url({{ b.icon }}) center / contain no-repeat;-webkit-mask:url({{ b.icon }}) center / contain no-repeat;"></span>
+              </div>
+              <div style="flex:1;min-width:0;">
+                <div style="font-size:15px;font-weight:600;">{{ b.name }}</div>
+                <div style="color:#8b93a3;font-size:12px;margin-top:1px;">{{ b.date }}</div>
+              </div>
+              <span style="font-size:15px;font-weight:700;color:#8b93a3;">{{ b.amt }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </sc-if>
+
+    <sc-if value="{{ isSettings }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Settings">
+        <div style="font-size:28px;font-weight:700;letter-spacing:-0.5px;padding:6px 2px 14px;">Settings</div>
+        <div style="color:#8b93a3;font-size:12px;font-weight:700;letter-spacing:1.2px;margin:6px 2px 10px;">BUDGET</div>
+        <div style="background:#151a23;border-radius:16px;padding:6px 16px;">
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #232b38;">
+            <span style="flex:1;font-size:15px;font-weight:500;">Monthly budget</span>
+            <span style="color:#8b93a3;font-size:15px;">{{ budgetedShort }}</span>
+            <span style="display:block;width:14px;height:14px;background:#8b93a3;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center / contain no-repeat;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center / contain no-repeat;"></span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 0;">
+            <span style="flex:1;font-size:15px;font-weight:500;">Savings target</span>
+            <span style="color:#8b93a3;font-size:15px;">{{ targetShort }}</span>
+            <span style="display:block;width:14px;height:14px;background:#8b93a3;mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center / contain no-repeat;-webkit-mask:url(https://unpkg.com/lucide-static/icons/chevron-right.svg) center / contain no-repeat;"></span>
+          </div>
+        </div>
+        <div style="color:#8b93a3;font-size:12px;font-weight:700;letter-spacing:1.2px;margin:22px 2px 10px;">ACCOUNT</div>
+        <div style="background:#151a23;border-radius:16px;padding:6px 16px;">
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #232b38;">
+            <span style="display:block;width:17px;height:17px;background:#8b93a3;mask:url(https://unpkg.com/lucide-static/icons/landmark.svg) center / contain no-repeat;-webkit-mask:url(https://unpkg.com/lucide-static/icons/landmark.svg) center / contain no-repeat;"></span>
+            <span style="flex:1;font-size:15px;font-weight:500;">American Express</span>
+            <span style="color:#6c8cff;font-size:14px;font-weight:600;">Reconnect</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid #232b38;">
+            <span style="display:block;width:17px;height:17px;background:#8b93a3;mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center / contain no-repeat;-webkit-mask:url(https://unpkg.com/lucide-static/icons/bell.svg) center / contain no-repeat;"></span>
+            <span style="flex:1;font-size:15px;font-weight:500;">Notifications</span>
+            <button onClick="{{ toggleNotif }}" style="width:46px;height:28px;border-radius:999px;border:none;cursor:pointer;padding:2px;background:{{ notifBg }};display:flex;justify-content:{{ notifAlign }};">
+              <span style="width:24px;height:24px;border-radius:999px;background:#f2f4f8;display:block;"></span>
+            </button>
+          </div>
+          <div style="display:flex;align-items:center;gap:12px;padding:14px 0;">
+            <span style="display:block;width:17px;height:17px;background:#ff6b6b;mask:url(https://unpkg.com/lucide-static/icons/log-out.svg) center / contain no-repeat;-webkit-mask:url(https://unpkg.com/lucide-static/icons/log-out.svg) center / contain no-repeat;"></span>
+            <span style="flex:1;font-size:15px;font-weight:500;color:#ff6b6b;">Log out</span>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+  </div>
+  <div style="flex-shrink:0;display:flex;background:#0e121a;border-top:1px solid #232b38;padding:10px 8px 26px;">
+    <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+      <button onClick="{{ t.onTap }}" style="flex:1;background:none;border:none;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;color:{{ t.color }};font-family:inherit;padding:4px 0;">
+        <span style="display:block;width:22px;height:22px;background:currentColor;mask:url({{ t.icon }}) center / contain no-repeat;-webkit-mask:url({{ t.icon }}) center / contain no-repeat;"></span>
+        <span style="font-size:11px;font-weight:600;">{{ t.label }}</span>
+      </button>
+    </sc-for>
+  </div>
+</div>
+</x-import>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;: {&quot;width&quot;: 470, &quot;height&quot;: 940}, &quot;monthlyBudget&quot;: {&quot;editor&quot;: &quot;int&quot;, &quot;default&quot;: 2596, &quot;min&quot;: 500, &quot;max&quot;: 10000, &quot;section&quot;: &quot;Budget math&quot;, &quot;tsType&quot;: &quot;number&quot;}, &quot;savingsTarget&quot;: {&quot;editor&quot;: &quot;int&quot;, &quot;default&quot;: 1500, &quot;min&quot;: 100, &quot;max&quot;: 5000, &quot;section&quot;: &quot;Budget math&quot;, &quot;tsType&quot;: &quot;number&quot;}, &quot;showBalanceChart&quot;: {&quot;editor&quot;: &quot;boolean&quot;, &quot;default&quot;: true, &quot;section&quot;: &quot;Dashboard&quot;, &quot;tsType&quot;: &quot;boolean&quot;}}">
+class Component extends DCLogic {
+  state = { tab: 'budget', monthIdx: 6, syncing: false, notif: true };
+
+  fmt(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
+  fmtC(n) { return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  renderVals() {
+    const IC = (n) => 'https://unpkg.com/lucide-static/icons/' + n + '.svg';
+    const budgeted = this.props.monthlyBudget ?? 2596;
+    const target = this.props.savingsTarget ?? 1500;
+    const showBalance = this.props.showBalanceChart ?? true;
+    const { tab, monthIdx, syncing, notif } = this.state;
+
+    const MONTHS = [
+      { label: 'Jan', name: 'January', income: 5150, billsPaid: 2500, spent: 1220, savings: 1430 },
+      { label: 'Feb', name: 'February', income: 5075, billsPaid: 2500, spent: 1760, savings: 815 },
+      { label: 'Mar', name: 'March', income: 5320, billsPaid: 2500, spent: 1080, savings: 1740 },
+      { label: 'Apr', name: 'April', income: 5150, billsPaid: 2500, spent: 1910, savings: 740 },
+      { label: 'May', name: 'May', income: 5210, billsPaid: 2500, spent: 1390, savings: 1320 },
+      { label: 'Jun', name: 'June', income: 5150, billsPaid: 2500, spent: 1620, savings: 1030 },
+      { label: 'Jul', name: 'July', income: 3261, billsPaid: 2350, spent: 1291, savings: 504 },
+    ];
+    const m = MONTHS[monthIdx];
+    const isCurrent = monthIdx === 6;
+    const daysLeft = 16;
+
+    const CATS = [
+      { name: 'Auto & Transport', icon: IC('car'), color: '#4dd0e1', jul: 53, budget: 272 },
+      { name: 'Dining Out', icon: IC('utensils'), color: '#ffb454', jul: 184, budget: 300 },
+      { name: 'Groceries', icon: IC('shopping-cart'), color: '#36c98e', jul: 312, budget: 450 },
+      { name: 'Shopping', icon: IC('shopping-bag'), color: '#b07cff', jul: 267, budget: 400 },
+      { name: 'Entertainment', icon: IC('film'), color: '#ff6b6b', jul: 95, budget: 150 },
+      { name: 'Everything Else', icon: IC('shapes'), color: '#8b93a3', jul: 380, budget: 1024 },
+    ];
+    const factor = m.spent / 1291;
+    const cats = CATS.map(c => ({ ...c, spent: Math.round(c.jul * factor) }));
+
+    // budget screen
+    const left = Math.max(0, budgeted - m.spent);
+    const overBy = m.spent - budgeted;
+    const spendPct = Math.min(100, Math.round(m.spent / budgeted * 100)) + '%';
+    const billsTotal = 2500;
+    const billsLeftAmt = billsTotal - m.billsPaid;
+
+    // savings
+    const projected = m.savings;
+    const met = projected >= target;
+    const adviceRate = Math.max(0, Math.round((2450 - (target - projected)) / daysLeft));
+    const riskLabel = isCurrent ? (met ? 'On Track' : 'At Risk') : (met ? 'Target Met' : 'Missed');
+    const riskGood = met;
+    const tickVal = target >= 1000 ? ('$' + (Math.round(target / 100) / 10) + 'k') : this.fmt(target);
+
+    const catRows = cats.map(c => ({
+      name: c.name, icon: c.icon, color: c.color,
+      spentLabel: this.fmt(c.spent),
+      leftLabel: c.budget - c.spent >= 0 ? this.fmt(c.budget - c.spent) + ' left to spend' : this.fmt(c.spent - c.budget) + ' over budget',
+      pct: Math.min(100, Math.round(c.spent / c.budget * 100)) + '%',
+    }));
+
+    // dashboard
+    const totalSpend = m.spent + m.billsPaid;
+    const net = m.income - totalSpend;
+    const maxBar = 5400;
+    const barMonths = MONTHS.map((mm, i) => ({
+      label: mm.label,
+      incH: Math.round(mm.income / maxBar * 44 + 4) + 'px',
+      spdH: Math.round((mm.spent + mm.billsPaid) / maxBar * 44 + 4) + 'px',
+      border: i === monthIdx ? '#6c8cff' : '#232b38',
+      labelColor: i === monthIdx ? '#f2f4f8' : '#8b93a3',
+      onTap: () => this.setState({ monthIdx: i }),
+    }));
+
+    const donutData = [{ name: 'Bills & Utilities', color: '#6c8cff', spent: m.billsPaid }, ...cats.map(c => ({ name: c.name, color: c.color, spent: c.spent }))];
+    const C = 2 * Math.PI * 55;
+    let acc = 0;
+    const donutSegs = donutData.map(d => {
+      const len = Math.max(0, d.spent / totalSpend * C - 3);
+      const seg = { color: d.color, dash: len.toFixed(1) + ' ' + (C - len).toFixed(1), offset: (-acc).toFixed(1) };
+      acc += d.spent / totalSpend * C;
+      return seg;
+    });
+    const sorted = [...donutData].sort((a, b) => b.spent - a.spent);
+    const listRows = sorted.map((d, i) => ({
+      name: d.name, color: d.color,
+      spentLabel: this.fmt(d.spent),
+      share: Math.round(d.spent / totalSpend * 100) + '%',
+      divider: i === sorted.length - 1 ? 'transparent' : '#232b38',
+    }));
+
+    // balance line
+    const N = 12;
+    const base = 3600 + monthIdx * 120;
+    const pts = [];
+    for (let i = 0; i < N; i++) {
+      pts.push(base + 450 * Math.sin(i * 0.9 + monthIdx * 1.7) + i * (net / N) * 0.9 + 180 * Math.sin(i * 2.3 + monthIdx));
+    }
+    const lo = Math.min(...pts), hi = Math.max(...pts);
+    const X = i => (i / (N - 1) * 336 + 2).toFixed(1);
+    const Y = v => (100 - (v - lo) / (hi - lo || 1) * 92).toFixed(1);
+    const balPath = pts.map((v, i) => (i ? 'L' : 'M') + X(i) + ' ' + Y(v)).join(' ');
+    const balArea = balPath + ' L' + X(N - 1) + ' 108 L' + X(0) + ' 108 Z';
+    const delta = pts[N - 1] - pts[0];
+
+    // recurring
+    const div = (arr) => arr.map((b, i) => ({ ...b, divider: i === arr.length - 1 ? 'transparent' : '#232b38' }));
+    const upcoming = div([
+      { name: 'Xfinity Internet', icon: IC('wifi'), date: 'Due Jul 18', amt: this.fmtC(79.99) },
+      { name: 'Crunch Gym', icon: IC('dumbbell'), date: 'Due Jul 22', amt: this.fmtC(45) },
+      { name: 'Netflix', icon: IC('tv'), date: 'Due Jul 24', amt: this.fmtC(15.49) },
+      { name: 'Hulu', icon: IC('clapperboard'), date: 'Due Jul 26', amt: this.fmtC(6.53) },
+      { name: 'iCloud+', icon: IC('cloud'), date: 'Due Jul 28', amt: this.fmtC(2.99) },
+    ]);
+    const paid = div([
+      { name: 'Rent', icon: IC('home'), date: 'Paid Jul 1', amt: this.fmtC(1650) },
+      { name: 'Car Insurance', icon: IC('shield'), date: 'Paid Jul 3', amt: this.fmtC(128.42) },
+      { name: 'Phone Bill', icon: IC('smartphone'), date: 'Paid Jul 5', amt: this.fmtC(85) },
+      { name: 'Electric', icon: IC('zap'), date: 'Paid Jul 8', amt: this.fmtC(94.18) },
+      { name: 'Water', icon: IC('droplet'), date: 'Paid Jul 10', amt: this.fmtC(52.4) },
+      { name: 'Student Loan', icon: IC('graduation-cap'), date: 'Paid Jul 12', amt: this.fmtC(340) },
+    ]);
+
+    const TABS = [
+      { key: 'budget', label: 'Budget', icon: IC('wallet') },
+      { key: 'dashboard', label: 'Dashboard', icon: IC('layout-dashboard') },
+      { key: 'recurring', label: 'Recurring', icon: IC('repeat') },
+      { key: 'settings', label: 'Settings', icon: IC('settings') },
+    ];
+
+    return {
+      isBudget: tab === 'budget', isDashboard: tab === 'dashboard', isRecurring: tab === 'recurring', isSettings: tab === 'settings',
+      tabs: TABS.map(t => ({ ...t, color: tab === t.key ? '#6c8cff' : '#8b93a3', onTap: () => this.setState({ tab: t.key }) })),
+      syncLabel: syncing ? 'Syncing…' : 'Synced 5m ago',
+      onSync: () => { if (!this.state.syncing) { this.setState({ syncing: true }); setTimeout(() => this.setState({ syncing: false }), 1400); } },
+      monthLabel: isCurrent ? 'This Month' : m.name + ' 2026',
+      prevMonth: () => this.setState(s => ({ monthIdx: Math.max(0, s.monthIdx - 1) })),
+      nextMonth: () => this.setState(s => ({ monthIdx: Math.min(6, s.monthIdx + 1) })),
+      prevColor: monthIdx === 0 ? '#3a4356' : '#f2f4f8',
+      nextColor: monthIdx === 6 ? '#3a4356' : '#f2f4f8',
+      isCurrent,
+      dayChip: '$' + Math.round(left / daysLeft) + '/day for ' + daysLeft + 'd',
+      leftToSpend: overBy > 0 ? this.fmt(overBy) + ' over budget' : this.fmt(left) + (isCurrent ? ' left to spend' : ' under budget'),
+      spentLabel: this.fmt(m.spent) + ' spent',
+      budgetedLabel: this.fmt(budgeted) + ' budgeted',
+      spendPct,
+      billsHeadline: isCurrent ? this.fmt(billsLeftAmt) + ' left to pay' : 'All bills paid',
+      billsPaidLabel: this.fmt(m.billsPaid) + ' paid',
+      billsPct: Math.round(m.billsPaid / billsTotal * 100) + '%',
+      savingsCaption: isCurrent ? 'Projected Savings' : 'Saved',
+      projectedLabel: this.fmt(projected),
+      ofTargetLabel: 'Of ' + this.fmt(target) + ' Target',
+      riskLabel,
+      riskBg: riskGood ? 'rgba(54,201,142,0.16)' : 'rgba(255,180,84,0.16)',
+      riskFg: riskGood ? '#7fe0b8' : '#ffcd8a',
+      targetTick: tickVal,
+      savingsBarH: Math.round(Math.min(1, projected / target) * 52 + 6) + 'px',
+      showAdvice: isCurrent && !met,
+      adviceTitle: 'Try to slow down your spending.',
+      adviceBody: 'You can still meet your savings target by slowing your spending to $' + adviceRate + '/day for the rest of the month.',
+      catRows,
+      barMonths, donutSegs, listRows,
+      totalSpendLabel: this.fmt(totalSpend),
+      incomeLabel: this.fmt(m.income),
+      netLabel: (net < 0 ? '-' : '+') + this.fmt(Math.abs(net)).slice(0),
+      netColor: net < 0 ? '#ff6b6b' : '#36c98e',
+      showBalance,
+      balPath, balArea,
+      balEndLabel: this.fmt(pts[N - 1]),
+      balDeltaLabel: (delta >= 0 ? '+' : '\u2212') + this.fmt(Math.abs(delta)) + ' this month',
+      balDeltaColor: delta >= 0 ? '#36c98e' : '#ff6b6b',
+      balStartTick: m.label + ' 1',
+      balEndTick: isCurrent ? 'Today' : m.label + ' 31',
+      upcoming, paid,
+      budgetedShort: this.fmt(budgeted), targetShort: this.fmt(target),
+      toggleNotif: () => this.setState(s => ({ notif: !s.notif })),
+      notifBg: notif ? '#6c8cff' : '#1d2430',
+      notifAlign: notif ? 'flex-end' : 'flex-start',
+    };
+  }
+}
+</script>
+</body>
+</html>
