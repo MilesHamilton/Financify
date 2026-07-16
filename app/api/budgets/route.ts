@@ -216,7 +216,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    console.error("[POST /api/budgets] Unexpected error", errInfo(err));
+    // errInfo() only reads err.name/err.message, which is empty/generic for a
+    // DrizzleQueryError (the real Postgres code/detail/constraint live at
+    // err.cause). Surface those safe, non-sensitive diagnostic fields too —
+    // none of them can carry secrets (they're schema/constraint metadata).
+    const pgErr = pgErrorOf(err);
+    const pgDetail = isDbError(pgErr)
+      ? {
+          pg_code: pgErr.code,
+          pg_detail: (pgErr as { detail?: string }).detail,
+          pg_constraint: (pgErr as { constraint?: string }).constraint,
+          pg_table: (pgErr as { table?: string }).table,
+        }
+      : undefined;
+
+    console.error("[POST /api/budgets] Unexpected error", {
+      ...errInfo(err),
+      ...pgDetail,
+    });
     return NextResponse.json({ error: "internal_error" }, { status: 500 });
   }
 }
@@ -238,10 +255,29 @@ function isDbError(err: unknown): err is DbError {
   );
 }
 
+/**
+ * Drizzle wraps every driver-level error in a DrizzleQueryError (see
+ * drizzle-orm/errors.js), whose own `.code` is always undefined — the real
+ * Postgres error (with `.code`, `.detail`, `.constraint`, etc.) lives at
+ * `err.cause`. Checking `err.code` directly (as this file previously did)
+ * never matches, so every DB error — including ordinary unique/FK violations
+ * — fell through to the generic 500 branch below instead of the correct
+ * 409/400. Unwrap `.cause` first, falling back to `err` itself in case a
+ * driver ever throws the raw pg error directly.
+ */
+function pgErrorOf(err: unknown): unknown {
+  if (isDbError(err)) return err;
+  const cause = (err as { cause?: unknown })?.cause;
+  if (isDbError(cause)) return cause;
+  return err;
+}
+
 function isUniqueViolation(err: unknown): boolean {
-  return isDbError(err) && err.code === "23505";
+  const pgErr = pgErrorOf(err);
+  return isDbError(pgErr) && pgErr.code === "23505";
 }
 
 function isForeignKeyViolation(err: unknown): boolean {
-  return isDbError(err) && err.code === "23503";
+  const pgErr = pgErrorOf(err);
+  return isDbError(pgErr) && pgErr.code === "23503";
 }
