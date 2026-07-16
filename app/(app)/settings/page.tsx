@@ -18,14 +18,18 @@
  *              src/components/budget/SpendingPlanEditors.tsx.
  *   ACCOUNT  — one row per linked institution (Landmark icon + name +
  *              accent "Reconnect" link reusing the same /api/plaid/link/update
- *              flow as the existing ReconnectButton components), a
- *              visual-only Notifications toggle stub, and a Log out row
- *              reusing the same sign-out flow as LogoutButton.
+ *              flow as the existing ReconnectButton components), an
+ *              "Add account" row (AddAccountRow) restoring the deleted
+ *              LinkAccountButton's /api/plaid/link/start flow to add a new
+ *              institution, a visual-only Notifications toggle stub, and a
+ *              Log out row reusing the same sign-out flow as LogoutButton.
  *
- * Deviation from the pre-redesign page: the "Add account" (LinkAccountButton)
- * and "Install prompt" (InstallPrompt / A2HS) sections are not part of the
- * prototype's Settings screen and have been dropped here to match it
- * exactly — see redesign-phase2 working-memory Handoff notes for T-R43.
+ * Deviation from the pre-redesign page: the "Install prompt" (InstallPrompt /
+ * A2HS) section is not part of the prototype's Settings screen and remains
+ * dropped to match it exactly. "Add account" was also dropped originally
+ * (see redesign-phase2 working-memory Handoff notes for T-R43) but has since
+ * been restored as a row at the bottom of the institution list, per a
+ * follow-up decision.
  */
 
 import { Landmark, Bell } from "lucide-react";
@@ -43,6 +47,7 @@ import { EmptyState } from "@/components/EmptyState";
 import { BudgetEditor } from "@/components/settings/BudgetEditor";
 import { ExpandableEditorRow } from "@/components/settings/ExpandableEditorRow";
 import { ReconnectLink } from "@/components/settings/ReconnectLink";
+import { AddAccountRow } from "@/components/settings/AddAccountRow";
 import { NotificationsToggle } from "@/components/settings/NotificationsToggle";
 import { LogoutRow } from "@/components/settings/LogoutRow";
 import {
@@ -248,6 +253,8 @@ export default async function SettingsPage() {
             </StaticRow>
           ))
         )}
+
+        <AddAccountRow />
 
         <StaticRow>
           <Bell
