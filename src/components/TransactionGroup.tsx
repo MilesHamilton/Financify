@@ -57,7 +57,7 @@ export function TransactionGroup({
   return (
     <section>
       <div className="flex items-center justify-between px-4 pb-1 pt-4">
-        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-muted)]">
+        <span className="text-xs font-bold uppercase tracking-[1.2px] text-[var(--color-text-muted)]">
           {formatDateHeader(date)}
         </span>
         <Amount
