@@ -26,6 +26,20 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async redirects() {
+    return [
+      {
+        source: "/spending",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/accounts",
+        destination: "/settings",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 export default withSerwist(nextConfig);
