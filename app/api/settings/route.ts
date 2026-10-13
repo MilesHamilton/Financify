@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSession } from "@/lib/api-auth";
 import { errInfo } from "@/lib/log-error";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { auth } from "../../../auth";
 import { db } from "@/db/index";
 import { appSettings } from "@/db/schema";
 
@@ -16,7 +16,7 @@ export const runtime = "nodejs";
 // ---------------------------------------------------------------------------
 
 export async function GET(_req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
+  const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -57,7 +57,7 @@ const bodySchema = z.object({
 });
 
 export async function PUT(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
+  const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

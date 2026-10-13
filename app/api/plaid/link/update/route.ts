@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSession } from "@/lib/api-auth";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { auth } from "../../../../../auth";
 import { db } from "@/db/index";
 import { items } from "@/db/schema";
 import { plaidClient } from "@/lib/plaid";
@@ -12,11 +12,13 @@ export const runtime = "nodejs";
 
 const bodySchema = z.object({
   itemId: z.string().min(1),
+  // iOS app: finish on /linked?app=1, which deep-links back into the app.
+  platform: z.literal("ios").optional(),
 });
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   // Auth gate
-  const session = await auth();
+  const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -59,10 +61,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Call Plaid /link/token/create in update mode (FR-010, Flow 4)
   // - access_token: the existing decrypted token (triggers update mode)
   // - products: [] (MUST be empty in update mode per spec)
-  // - No hosted_link.url_lifetime_seconds or completion_redirect_uri override needed;
-  //   pass an empty hosted_link object to get the hosted_link_url back
+  // - hosted_link: empty for web; the iOS app gets a completion redirect so its
+  //   in-app browser closes when the user finishes
   // - redirect_uri still required: institutions are OAuth-based (Amex, SoFi)
   // - webhook has no effect in update mode per Plaid docs, but included per spec
+  const appBaseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? process.env.APP_BASE_URL;
+  const hostedLink =
+    parsed.platform === "ios" && appBaseUrl
+      ? { completion_redirect_uri: `${appBaseUrl}/linked?app=1` }
+      : {};
+
   let hostedLinkUrl: string;
   try {
     const response = await plaidClient.linkTokenCreate({
@@ -74,7 +82,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       products: [],
       webhook: process.env.PLAID_WEBHOOK_URL,
       redirect_uri: process.env.PLAID_REDIRECT_URI,
-      hosted_link: {},
+      hosted_link: hostedLink,
     });
 
     const url = response.data.hosted_link_url;

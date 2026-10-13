@@ -1,5 +1,5 @@
-import { auth } from "../../../../auth";
 import { db } from "@/db";
+import { requireSession } from "@/lib/api-auth";
 import { transactions } from "@/db/schema";
 import { createUpdateSchema } from "drizzle-zod";
 import { eq } from "drizzle-orm";
@@ -20,7 +20,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   // Auth gate — 401 if no session.
-  const session = await auth();
+  const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

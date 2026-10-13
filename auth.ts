@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import argon2 from "argon2";
+import { verifyCredentials } from "./src/lib/credentials";
 import { authConfig } from "./auth.config";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -16,23 +16,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           username: string;
           password: string;
         };
-
-        if (
-          !username ||
-          !password ||
-          username !== process.env.AUTH_USERNAME ||
-          !process.env.AUTH_PASSWORD_HASH
-        ) {
-          return null;
-        }
-
-        const valid = await argon2.verify(
-          process.env.AUTH_PASSWORD_HASH,
-          password,
-        );
-
-        if (!valid) return null;
-
+        if (!(await verifyCredentials(username, password))) return null;
         return { id: "1", name: username };
       },
     }),

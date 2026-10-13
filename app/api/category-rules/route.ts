@@ -5,10 +5,10 @@
  * Auth: session cookie required (FR-025, TR § 1.7)
  */
 
+import { requireSession } from "@/lib/api-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { errInfo } from "@/lib/log-error";
 import { z } from "zod";
-import { auth } from "../../../auth";
 import { db } from "@/db";
 import { categoryRules } from "@/db/schema";
 
@@ -75,7 +75,7 @@ const createRuleSchema = z
 // ---------------------------------------------------------------------------
 
 export async function GET(): Promise<NextResponse> {
-  const session = await auth();
+  const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -93,7 +93,7 @@ export async function GET(): Promise<NextResponse> {
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
+  const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

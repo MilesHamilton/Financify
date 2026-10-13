@@ -9,7 +9,14 @@ export const authConfig: NextAuthConfig = {
     maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   callbacks: {
-    authorized({ auth, request: { nextUrl } }) {
+    authorized({ auth, request: { nextUrl, headers } }) {
+      // Bearer-token API calls (iOS app, Vercel cron) are verified inside each route.
+      if (
+        nextUrl.pathname.startsWith("/api/") &&
+        headers.get("authorization")?.startsWith("Bearer ")
+      ) {
+        return true;
+      }
       const isLoggedIn = !!auth?.user;
       const isAuthRoute = nextUrl.pathname.startsWith("/login");
       if (isAuthRoute) {

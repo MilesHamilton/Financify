@@ -1430,7 +1430,7 @@ export interface RecurringMonthResult {
  *   MONTHLY      → +1 calendar month
  *   ANNUALLY     → +1 calendar year
  */
-function getNextExpectedDate(
+export function getNextExpectedDate(
   lastDate: string | null,
   frequency: string,
 ): string | null {

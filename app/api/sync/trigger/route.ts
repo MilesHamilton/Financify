@@ -12,10 +12,10 @@
  * References: FRS FR-040; TR.md § 1.5; runtime-execution.md § Process Lifecycle
  */
 
+import { requireSession } from "@/lib/api-auth";
 import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { auth } from "../../../../auth";
 import { db } from "@/db";
 import { items } from "@/db/schema";
 import { syncItem } from "@/lib/sync";
@@ -32,7 +32,7 @@ const bodySchema = z.object({
 // ── Handler ──────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest): Promise<NextResponse> {
   // Auth gate (FR-002 / middleware backs this up, but in-handler check is required)
-  const session = await auth();
+  const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

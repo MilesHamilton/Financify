@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
+import { requireSession } from "@/lib/api-auth";
 import { errInfo } from "@/lib/log-error";
 import { z } from "zod";
-import { auth } from "../../../../auth";
 import { handleSessionFinished } from "@/lib/link-session";
 
 export const runtime = "nodejs";
@@ -19,7 +19,7 @@ const bodySchema = z.object({
 });
 
 export async function POST(request: Request): Promise<NextResponse> {
-  const session = await auth();
+  const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

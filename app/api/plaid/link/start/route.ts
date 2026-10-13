@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSession } from "@/lib/api-auth";
 import { errInfo } from "@/lib/log-error";
 import { z } from "zod";
-import { auth } from "../../../../../auth";
 import { plaidClient } from "@/lib/plaid";
 import { CountryCode, Products } from "plaid";
 
@@ -15,12 +15,18 @@ const responseSchema = z.object({
   hosted_link_url: z.string().url(),
 });
 
-export async function POST(_req: NextRequest): Promise<NextResponse> {
+export async function POST(req: NextRequest): Promise<NextResponse> {
   // Auth-gate: defense in depth behind middleware (FR-004, TR § 1.2).
-  const session = await auth();
+  const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
+
+  // Optional JSON body { platform: "ios" } — the iOS app opts into the
+  // app=1 completion redirect so /linked can hand control back to the app
+  // via a financify:// deep link. Body is optional, so tolerate empty/invalid JSON.
+  const body = (await req.json().catch(() => null)) as { platform?: unknown } | null;
+  const isIosApp = body?.platform === "ios";
 
   // Validate required env vars before hitting Plaid.
   const webhookUrl = process.env.PLAID_WEBHOOK_URL;
@@ -48,9 +54,10 @@ export async function POST(_req: NextRequest): Promise<NextResponse> {
   // available, otherwise fall back to a path-only value that Plaid will
   // reject — this surfaces a clear misconfiguration error at startup rather
   // than a silent wrong redirect.
+  const linkedPath = isIosApp ? "/linked?app=1" : "/linked";
   const completionRedirectUri = appBaseUrl
-    ? `${appBaseUrl}/linked`
-    : `${redirectUri.replace("/plaid/oauth-return", "")}/linked`;
+    ? `${appBaseUrl}${linkedPath}`
+    : `${redirectUri.replace("/plaid/oauth-return", "")}${linkedPath}`;
 
   try {
     // linkTokenCreate params — all fields required by FR-008 / TR § 1.2 / integration-layer.md § Flow 1.

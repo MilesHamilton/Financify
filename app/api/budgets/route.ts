@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireSession } from "@/lib/api-auth";
 import { errInfo } from "@/lib/log-error";
 import { z } from "zod";
 import { revalidatePath } from "next/cache";
-import { auth } from "../../../auth";
 import { db } from "@/db/index";
 import { budgets } from "@/db/schema";
 import { sql } from "drizzle-orm";
@@ -71,7 +71,7 @@ const postBodySchema = z.object({
 // ---------------------------------------------------------------------------
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
+  const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -130,15 +130,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 // ---------------------------------------------------------------------------
 // POST /api/budgets
 //
-// Inserts a new budget row — never overwrites an existing row (FR-035).
-// Budget history is preserved: each change appends a new row.
+// Upserts the budget for (category, effective month). Earlier months' rows
+// are untouched, so budget history across months is preserved (FR-035).
 //
-// On UNIQUE(category_id, effective_month) conflict → 409.
+// On UNIQUE(category_id, effective_month) conflict → amount is updated (upsert).
 // On success → revalidatePath('/spending') (TR § 1.8 / FR-028).
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const session = await auth();
+  const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
@@ -181,6 +181,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         amount: amountStr,
         effectiveMonth: resolvedEffectiveMonth,
       })
+      // Re-saving a category's budget in the same month updates it (was a 409).
+      .onConflictDoUpdate({
+        target: [budgets.categoryId, budgets.effectiveMonth],
+        set: { amount: amountStr },
+      })
       .returning({
         id: budgets.id,
         categoryId: budgets.categoryId,
@@ -194,17 +199,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(inserted, { status: 201 });
   } catch (err: unknown) {
-    // Postgres unique-constraint violation code: 23505
-    if (isUniqueViolation(err)) {
-      return NextResponse.json(
-        {
-          error: "conflict",
-          details: `A budget for category "${categoryId}" on effective_month "${resolvedEffectiveMonth}" already exists. To change the budget, post a new row with a later effective_month.`,
-        },
-        { status: 409 },
-      );
-    }
-
     // FK violation (category_id does not exist): 23503
     if (isForeignKeyViolation(err)) {
       return NextResponse.json(
@@ -270,11 +264,6 @@ function pgErrorOf(err: unknown): unknown {
   const cause = (err as { cause?: unknown })?.cause;
   if (isDbError(cause)) return cause;
   return err;
-}
-
-function isUniqueViolation(err: unknown): boolean {
-  const pgErr = pgErrorOf(err);
-  return isDbError(pgErr) && pgErr.code === "23505";
 }
 
 function isForeignKeyViolation(err: unknown): boolean {

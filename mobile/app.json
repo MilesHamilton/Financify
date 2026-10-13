@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "Financify",
+    "slug": "financify",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "financify",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#0A0F1C",
+    "ios": {
+      "bundleIdentifier": "com.mileshamilton.financify",
+      "supportsTablet": false,
+      "appleTeamId": "CRWZ356NAX",
+      "infoPlist": { "ITSAppUsesNonExemptEncryption": false }
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      ["expo-splash-screen", { "backgroundColor": "#0A0F1C", "imageWidth": 120 }]
+    ],
+    "experiments": { "typedRoutes": true }
+  }
+}

@@ -7,11 +7,11 @@
  * Auth: session cookie required (FR-025, TR § 1.7)
  */
 
+import { requireSession } from "@/lib/api-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { errInfo } from "@/lib/log-error";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { auth } from "../../../../auth";
 import { db } from "@/db";
 import { categoryRules } from "@/db/schema";
 
@@ -86,7 +86,7 @@ export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
-  const session = await auth();
+  const session = await requireSession();
   if (!session) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }

@@ -1,12 +1,26 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 
 /**
  * Hosted Link completion landing page (completion_redirect_uri).
  * The public_token arrives server-side via the SESSION_FINISHED webhook —
  * this page only confirms and points the user back to the app.
+ *
+ * When /api/plaid/link/start was called with { platform: "ios" }, the
+ * completion_redirect_uri carries ?app=1 — redirect straight to the
+ * financify:// deep link so the iOS in-app browser session closes itself.
  */
-export default function LinkedPage() {
+export default async function LinkedPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ app?: string }>;
+}) {
+  const { app } = await searchParams;
+  if (app === "1") {
+    redirect("financify://linked");
+  }
+
   return (
     <main className="flex min-h-svh flex-col items-center justify-center gap-4 bg-[var(--color-canvas)] px-6 text-center">
       <CheckCircle2 size={48} className="text-[var(--color-positive)]" />
