@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Pressable,
   StyleSheet,
@@ -9,7 +10,7 @@ import {
   View,
 } from 'react-native';
 
-import { colors, radius, space } from '@/constants/theme';
+import { colors, radius, space, type } from '@/constants/theme';
 import { ApiError, login } from '@/lib/api';
 
 export default function LoginScreen() {
@@ -39,7 +40,12 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView behavior="padding" style={styles.root}>
       <View style={styles.form}>
-        <Text style={styles.title}>Financify</Text>
+        <View style={styles.brand}>
+          <Image source={require('../../../assets/logo-mark.png')} style={styles.mark} accessibilityIgnoresInvertColors />
+          <Text style={styles.title} accessibilityRole="header">
+            Financify
+          </Text>
+        </View>
         <TextInput
           style={styles.input}
           placeholder="Username"
@@ -69,7 +75,7 @@ export default function LoginScreen() {
           disabled={busy || !username || !password}
           accessibilityRole="button"
         >
-          {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Log in</Text>}
+          {busy ? <ActivityIndicator color={colors.text} /> : <Text style={styles.buttonText}>Log in</Text>}
         </Pressable>
       </View>
     </KeyboardAvoidingView>
@@ -79,7 +85,9 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg, justifyContent: 'center' },
   form: { paddingHorizontal: space(6), gap: space(3) },
-  title: { color: colors.text, fontSize: 32, fontWeight: '700', marginBottom: space(4) },
+  brand: { alignItems: 'center', gap: space(3), marginBottom: space(6) },
+  mark: { width: 72, height: 72 },
+  title: { ...type.headingL, fontWeight: '600' },
   input: {
     backgroundColor: colors.input,
     borderColor: colors.input,
@@ -90,7 +98,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: space(4),
     paddingVertical: space(3.5),
   },
-  error: { color: colors.warning, fontSize: 14 },
+  error: { ...type.paragraph, color: colors.warning },
   button: {
     backgroundColor: colors.brand,
     borderRadius: radius.round,
@@ -98,5 +106,5 @@ const styles = StyleSheet.create({
     paddingVertical: space(4),
     marginTop: space(2),
   },
-  buttonText: { color: '#fff', fontSize: 17, fontWeight: '600' },
+  buttonText: { ...type.label, color: colors.text },
 });

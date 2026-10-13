@@ -5,10 +5,10 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import { BackButton } from '@/components/BackButton';
 import { AccountToggleRow } from '@/components/net-worth/AccountToggleRow';
 import { SpendChart } from '@/components/SpendChart';
-import { Card, Divider, ErrorState, ListRow, Screen, Segmented, SectionHeader, Skeleton } from '@/components/ui';
+import { Card, Divider, ErrorState, ListRow, Money, Screen, Segmented, SectionHeader, Skeleton, SkeletonCard } from '@/components/ui';
 import { colors, space, type } from '@/constants/theme';
 import { api } from '@/lib/api';
-import { money } from '@/lib/format';
+import { money, shortDate } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 
 type Tab = 'summary' | 'assets' | 'debt';
@@ -47,6 +47,7 @@ const SERIES = { summary: 'netWorth', assets: 'assets', debt: 'debts' } as const
 export default function NetWorthScreen() {
   const [tab, setTab] = useState<Tab>('summary');
   const [range, setRange] = useState<NetWorthRange>('1M');
+  const [scrub, setScrub] = useState<number | null>(null);
   const { data, error, loading, refresh, setData } = useApi<NetWorthResponse>(`/api/mobile/net-worth?range=${range}`);
 
   async function toggle(account: AccountSummary, include: boolean) {
@@ -81,31 +82,51 @@ export default function NetWorthScreen() {
   const groups = tab === 'summary' ? [...ASSET_GROUPS, ...DEBT_GROUPS] : tab === 'assets' ? ASSET_GROUPS : DEBT_GROUPS;
 
   return (
-    <Screen title="Net Worth" left={<BackButton />} refreshing={loading && !!data} onRefresh={refresh}>
-      <Segmented options={TABS} value={tab} onChange={setTab} />
+    <Screen title="Net Worth" left={<BackButton />} refreshing={loading && !!data} onRefresh={refresh} scrollEnabled={scrub === null}>
+      <Segmented variant="tabs" options={TABS} value={tab} onChange={setTab} />
 
       {!data ? (
         <>
-          <Skeleton height={72} />
+          <View style={{ gap: space(2) }}>
+            <Skeleton height={44} width={200} />
+            <Skeleton height={16} width={160} />
+          </View>
           <Skeleton height={160} />
-          <Skeleton height={240} />
+          <Skeleton height={40} round />
+          <SkeletonCard rows={3} heading={false} />
         </>
       ) : (
         <>
-          <View style={{ gap: space(1) }}>
-            <Text style={type.headingL} accessibilityRole="header">
-              {money(total)}
-            </Text>
-            <Text style={[type.caption, { color: good ? colors.success : colors.warning }]}>
-              {`${delta.amount >= 0 ? '▲' : '▼'} ${money(Math.abs(delta.amount))}`}
-              {delta.pct !== null ? ` (${Math.abs(delta.pct).toFixed(1)}%)` : ''}
-              <Text style={{ color: colors.textSubtle }}>{` ${RANGE_CAPTION[range]}`}</Text>
-            </Text>
+          <View style={{ gap: space(1) }} accessibilityRole="header">
+            <Money value={scrub !== null ? (series[scrub] ?? total) : total} size="xl" countUp={scrub === null ? 400 : undefined} />
+            {scrub !== null && data.history[scrub] ? (
+              <Text style={[type.caption, { color: colors.textSubtle }]}>{shortDate(data.history[scrub].date)}</Text>
+            ) : (
+              <Text style={[type.caption, { color: good ? colors.success : colors.warning }]}>
+                {`${delta.amount >= 0 ? '▲' : '▼'} ${money(Math.abs(delta.amount))}`}
+                {delta.pct !== null ? ` (${Math.abs(delta.pct).toFixed(1)}%)` : ''}
+                <Text style={{ color: colors.textSubtle }}>{` ${RANGE_CAPTION[range]}`}</Text>
+              </Text>
+            )}
           </View>
 
           {series.length > 0 ? (
             // Offset by the minimum so the line spans the chart (and negative net worth plots).
-            <SpendChart current={series.map((v) => v - Math.min(...series))} prior={[]} budget={null} daysInMonth={series.length} height={160} />
+            <SpendChart
+              current={series.map((v) => v - Math.min(...series))}
+              prior={[]}
+              budget={null}
+              daysInMonth={series.length}
+              height={160}
+              yBase={Math.min(...series)}
+              xLabels={[
+                shortDate(data.history[0].date),
+                shortDate(data.history[Math.floor((data.history.length - 1) / 2)].date),
+                shortDate(data.history[data.history.length - 1].date),
+              ]}
+              tooltip={(i) => `${shortDate(data.history[i].date)} · ${money(series[i], true)}`}
+              onScrub={setScrub}
+            />
           ) : null}
           <Segmented options={RANGES} value={range} onChange={setRange} />
 

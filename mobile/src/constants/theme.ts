@@ -45,10 +45,31 @@ export const colors = {
   scrim: 'rgba(0,0,0,0.8)',
   skeleton: 'rgba(255,255,255,0.1)',
   tabBar: '#2B2B2B',
-  tabBarBorder: '#4D4D4D',
+  tabBarBorder: '#545454',
   tabInactive: '#6D6D6D',
   input: '#404040',
+  // Polish tokens (docs/rocket-clone/design/spec.md §0).
+  progressWarning: '#DB6600',
+  chipSuccessBg: '#B5DDC6',
+  chipSuccessFg: '#0B5E36',
+  chipWarningBg: '#FFE6CC',
+  chipWarningFg: '#C25400',
+  cardPressed: 'rgba(0,0,0,0.1)',
+  rowPressed: 'rgba(255,255,255,0.06)',
+  borderTranslucent: 'rgba(255,255,255,0.4)',
+  dragHandle: '#545454',
+  sheetScrim: 'rgba(0,0,0,0.65)',
+  textOnBand: 'rgba(255,255,255,0.8)',
+  logoRing: 'rgba(255,255,255,0.12)',
+  ghostBar: 'rgba(255,255,255,0.06)',
+  todayBarFill: 'rgba(59,130,246,0.2)',
+  saverGlow: '#0B5E36',
+  metricWarningBand: '#AF4B04',
+  thumbShadow: '#000000',
 } as const;
+
+/** Tint for letter avatars (RM category-custom palette), picked by name hash. */
+export const avatarTints = ['#149CD6', '#3FB24B', '#5D33D6', '#DE7412', '#D02462', '#1DC1B7'] as const;
 
 export const radius = { sm: 6, banner: 8, md: 16, lg: 24, round: 9999 } as const;
 

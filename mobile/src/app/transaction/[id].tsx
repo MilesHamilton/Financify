@@ -1,12 +1,13 @@
 import type { CategoriesResponse, Txn } from '@contract';
-import { Stack, router, useLocalSearchParams } from 'expo-router';
+import * as Haptics from 'expo-haptics';
+import { router, useLocalSearchParams } from 'expo-router';
 import { X } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import { MerchantLogo } from '@/components/MerchantLogo';
-import { CategoryBadge, PickerSheet, categoryOptions, txnAmount, txnTitle, useTxnStore } from '@/components/transactions';
-import { Card, Divider, EmptyState, ListRow } from '@/components/ui';
+import { CategoryBadge, PickerSheet, categoryOptions, txnTitle, useTxnStore } from '@/components/transactions';
+import { Card, Divider, EmptyState, ListRow, Money, PressableRow } from '@/components/ui';
 import { colors, space, type } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { dayLabel } from '@/lib/format';
@@ -29,6 +30,8 @@ export default function TransactionDetail() {
     update(txn.id, local);
     try {
       await api(`/api/transactions/${txn.id}`, { method: 'PATCH', body });
+      if (body.categoryId !== undefined || body.note !== undefined)
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch {
       update(txn.id, prev);
       if ('note' in local) setNote(txn.note ?? '');
@@ -47,7 +50,6 @@ export default function TransactionDetail() {
   if (!txn) {
     return (
       <View style={styles.screen}>
-        <Stack.Screen options={{ presentation: 'modal' }} />
         {header}
         <EmptyState title="Transaction not found" body="Go back and open it from your transactions list." />
       </View>
@@ -57,12 +59,11 @@ export default function TransactionDetail() {
   const title = txnTitle(txn);
   return (
     <View style={styles.screen}>
-      <Stack.Screen options={{ presentation: 'modal' }} />
       {header}
       <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
-          <MerchantLogo uri={txn.logoUrl} name={title} size={56} />
-          <Text style={[type.headingXL, txn.amount < 0 && { color: colors.success }]}>{txnAmount(txn)}</Text>
+          <MerchantLogo uri={txn.logoUrl} name={title} size={56} fallback={<CategoryBadge category={txn.category} size={56} />} />
+          <Money value={Math.abs(txn.amount)} size="xl" color={txn.amount < 0 ? colors.success : undefined} countUp={400} />
           <Text style={type.labelL}>{title}</Text>
           <Text style={[type.paragraph, { color: colors.textSubtle }]}>
             {dayLabel(txn.date)}
@@ -73,9 +74,9 @@ export default function TransactionDetail() {
         <Card style={{ paddingVertical: space(1) }}>
           <ListRow title="Account" value={txn.accountName} />
           <Divider />
-          <Pressable onPress={() => setPicking(true)} accessibilityRole="button" accessibilityLabel={`Category, ${txn.category.label}. Change`}>
+          <PressableRow onPress={() => setPicking(true)} accessibilityLabel={`Category, ${txn.category.label}. Change`}>
             <ListRow leading={<CategoryBadge category={txn.category} size={28} />} title={txn.category.label} subtitle="Category" chevron />
-          </Pressable>
+          </PressableRow>
         </Card>
 
         <Card style={{ gap: space(1) }}>
@@ -102,7 +103,10 @@ export default function TransactionDetail() {
           </View>
           <Switch
             value={txn.isExcluded}
-            onValueChange={(isExcluded) => void save({ isExcluded }, { isExcluded })}
+            onValueChange={(isExcluded) => {
+              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+              void save({ isExcluded }, { isExcluded });
+            }}
             trackColor={{ true: colors.brand, false: colors.track }}
             accessibilityLabel="Ignore transaction"
           />
@@ -126,7 +130,7 @@ export default function TransactionDetail() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', justifyContent: 'flex-end', padding: space(4) },
+  header: { flexDirection: 'row', justifyContent: 'flex-end', padding: space(4), paddingTop: space(6) },
   body: { paddingHorizontal: space(4), paddingBottom: space(10), gap: space(4) },
   hero: { alignItems: 'center', gap: space(1), paddingBottom: space(4) },
   ignore: { flexDirection: 'row', alignItems: 'center', gap: space(3) },

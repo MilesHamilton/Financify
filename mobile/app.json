@@ -6,7 +6,8 @@
     "orientation": "portrait",
     "scheme": "financify",
     "userInterfaceStyle": "dark",
-    "backgroundColor": "#0A0F1C",
+    "backgroundColor": "#1B1B1B",
+    "icon": "./assets/icon.png",
     "ios": {
       "bundleIdentifier": "com.mileshamilton.financify",
       "supportsTablet": false,
@@ -21,7 +22,8 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#0A0F1C",
+          "image": "./assets/splash-icon.png",
+          "backgroundColor": "#1B1B1B",
           "imageWidth": 120
         }
       ],

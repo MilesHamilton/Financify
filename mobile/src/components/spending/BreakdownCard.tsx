@@ -1,12 +1,13 @@
 import type { SpendingResponse } from '@contract';
 import { router } from 'expo-router';
+import { ChartPie, CircleCheck, Store, TrendingUp } from 'lucide-react-native';
 import { Fragment, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { MerchantLogo } from '@/components/MerchantLogo';
-import { Card, Divider, EmptyState, ListRow, ProgressBar, Segmented } from '@/components/ui';
-import { colors, space, type } from '@/constants/theme';
+import { Card, Chip, Divider, EmptyState, ListRow, PressableRow, ProgressBar, Segmented } from '@/components/ui';
+import { space, type } from '@/constants/theme';
 import { money } from '@/lib/format';
 
 type Tab = 'categories' | 'merchants';
@@ -30,37 +31,38 @@ export function BreakdownCard({ data }: { data: SpendingResponse }) {
             return (
               <Fragment key={c.id}>
                 {i > 0 ? <Divider inset={48} /> : null}
-                <Pressable
+                <PressableRow
                   onPress={() =>
                     router.push({ pathname: '/spending/[categoryId]', params: { categoryId: c.id, month: data.month, label: c.label } })
                   }
-                  accessibilityRole="button"
                   accessibilityLabel={`${c.label}, ${money(c.spent)} spent`}
                   style={styles.row}
                 >
                   <CategoryIcon icon={c.icon} color={c.color} />
-                  <View style={{ flex: 1, gap: space(1.5) }}>
+                  <View style={{ flex: 1, gap: space(2) }}>
                     <View style={styles.line}>
                       <Text style={[type.label, { flex: 1 }]} numberOfLines={1}>
                         {c.label}
                       </Text>
-                      <Text style={type.label}>{money(c.spent, true)}</Text>
+                      <Text style={[type.label, { fontVariant: ['tabular-nums'] }]}>{money(c.spent, true)}</Text>
                     </View>
                     {c.budget !== null ? (
                       <>
                         <ProgressBar value={c.spent} max={c.budget} />
-                        <Text style={[type.caption, { color: over ? colors.warning : colors.textSubtle }]}>
-                          {money(Math.abs(c.budget - c.spent), true)} {over ? 'Over Budget' : 'Left to Spend'}
-                        </Text>
+                        <Chip
+                          variant={over ? 'warning' : 'success'}
+                          icon={over ? TrendingUp : CircleCheck}
+                          label={`${money(Math.abs(c.budget - c.spent), true)} ${over ? 'over budget' : 'left to spend'}`}
+                        />
                       </>
                     ) : null}
                   </View>
-                </Pressable>
+                </PressableRow>
               </Fragment>
             );
           })
         ) : (
-          <EmptyState title="No spending yet" />
+          <EmptyState icon={ChartPie} title="No spending yet" body="Spending shows up here as transactions sync." />
         )
       ) : merchants.length ? (
         merchants.map((m, i) => (
@@ -75,7 +77,7 @@ export function BreakdownCard({ data }: { data: SpendingResponse }) {
           </Fragment>
         ))
       ) : (
-        <EmptyState title="No merchants yet" />
+        <EmptyState icon={Store} title="No merchants yet" body="Merchants show up here as transactions sync." />
       )}
     </Card>
   );

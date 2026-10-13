@@ -1,10 +1,11 @@
 import type { Category } from '@contract';
+import * as Haptics from 'expo-haptics';
 import { Check } from 'lucide-react-native';
 import type { ReactNode } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { Divider } from '@/components/ui';
+import { Divider, PressableRow } from '@/components/ui';
 import { colors, radius, space, type } from '@/constants/theme';
 
 import { CategoryBadge } from './TransactionRow';
@@ -32,19 +33,19 @@ export function PickerSheet({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.scrim} onPress={onClose} accessibilityRole="button" accessibilityLabel="Close" />
       <View style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, space(4)) }]}>
+        <View style={styles.grabber} />
         <Text style={[type.headingXXS, { marginBottom: space(2) }]}>{title}</Text>
         <ScrollView>
           {options.map((o, i) => (
             <View key={o.id}>
               {i > 0 ? <Divider /> : null}
-              <Pressable
+              <PressableRow
                 onPress={() => {
+                  void Haptics.selectionAsync();
                   onSelect(o.id);
                   onClose();
                 }}
-                accessibilityRole="button"
-                accessibilityLabel={o.label}
-                accessibilityState={{ selected: o.id === selected }}
+                accessibilityLabel={`${o.label}${o.id === selected ? ', selected' : ''}`}
                 style={styles.row}
               >
                 {o.leading}
@@ -52,7 +53,7 @@ export function PickerSheet({
                   {o.label}
                 </Text>
                 {o.id === selected ? <Check size={18} color={colors.brand} /> : null}
-              </Pressable>
+              </PressableRow>
             </View>
           ))}
         </ScrollView>
@@ -62,13 +63,22 @@ export function PickerSheet({
 }
 
 const styles = StyleSheet.create({
-  scrim: { flex: 1, backgroundColor: colors.scrim },
+  scrim: { flex: 1, backgroundColor: colors.sheetScrim },
   sheet: {
     maxHeight: '70%',
     backgroundColor: colors.card,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     padding: space(4),
+    paddingTop: space(2),
+  },
+  grabber: {
+    alignSelf: 'center',
+    width: 36,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: colors.dragHandle,
+    marginBottom: space(3),
   },
   row: { flexDirection: 'row', alignItems: 'center', gap: space(3), minHeight: 52 },
 });

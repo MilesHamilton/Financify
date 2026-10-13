@@ -1,38 +1,83 @@
-import { ChevronLeft, ChevronRight } from 'lucide-react-native';
+import * as Haptics from 'expo-haptics';
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { colors, space, type } from '@/constants/theme';
-import { monthLabel } from '@/lib/format';
+import { colors, radius, space, type } from '@/constants/theme';
+import { monthLabel, parseDay } from '@/lib/format';
 
 import { addMonths, currentMonth } from './month';
 
-export function MonthSelector({ month, onChange }: { month: string; onChange: (m: string) => void }) {
+const monthName = (m: string) => parseDay(`${m}-01`).toLocaleDateString('en-US', { month: 'long' });
+
+/** "This month · October" / "Last month · September" / "March 2026". */
+export function monthTitle(month: string) {
   const now = currentMonth();
-  const label = month === now ? 'This Month' : month === addMonths(now, -1) ? 'Last Month' : monthLabel(month);
-  const atNow = month >= now;
+  if (month === now) return `This month · ${monthName(month)}`;
+  if (month === addMonths(now, -1)) return `Last month · ${monthName(month)}`;
+  return monthLabel(month);
+}
+
+/** Polish #15 full variant: header pill with calendar icon, label and a chevron pair. */
+export function MonthSelector({ month, onChange }: { month: string; onChange: (m: string) => void }) {
+  const atNow = month >= currentMonth();
+  const step = (d: number) => {
+    void Haptics.selectionAsync();
+    onChange(addMonths(month, d));
+  };
   return (
-    <View style={styles.row}>
-      <Pressable onPress={() => onChange(addMonths(month, -1))} accessibilityRole="button" accessibilityLabel="Previous month" hitSlop={12}>
-        <ChevronLeft size={22} color={colors.text} />
-      </Pressable>
-      <Text style={[type.labelL, styles.label]} accessibilityRole="header">
-        {label}
+    <View style={styles.pill}>
+      <CalendarDays size={18} color={colors.textSubtle} />
+      <Text style={[type.label, { flex: 1 }]} accessibilityRole="header" numberOfLines={1}>
+        {monthTitle(month)}
       </Text>
+      <Pressable onPress={() => step(-1)} accessibilityRole="button" accessibilityLabel="Previous month" style={styles.arrow}>
+        <ChevronLeft size={18} color={colors.text} />
+      </Pressable>
       <Pressable
-        onPress={() => onChange(addMonths(month, 1))}
+        onPress={() => step(1)}
         disabled={atNow}
         accessibilityRole="button"
         accessibilityLabel="Next month"
         accessibilityState={{ disabled: atNow }}
-        hitSlop={12}
+        style={styles.arrow}
       >
-        <ChevronRight size={22} color={atNow ? colors.textDisabled : colors.text} />
+        <ChevronRight size={18} color={atNow ? colors.textDisabled : colors.text} />
       </Pressable>
     </View>
   );
 }
 
+/** Compact header variant (spec §2): "October ⌄", opens a month picker. */
+export function MonthPill({ month, onPress }: { month: string; onPress: () => void }) {
+  return (
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`Month, ${monthLabel(month)}. Change`} style={styles.compact}>
+      <CalendarDays size={16} color={colors.textSubtle} />
+      <Text style={type.labelS}>{month === currentMonth() ? monthName(month) : monthLabel(month)}</Text>
+      <ChevronDown size={16} color={colors.text} />
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: space(3) },
-  label: { flex: 1, textAlign: 'center' },
+  pill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space(2),
+    height: 48,
+    borderRadius: radius.round,
+    backgroundColor: colors.card,
+    paddingLeft: space(4),
+    paddingRight: space(2),
+  },
+  arrow: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  compact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    height: 36,
+    borderRadius: radius.round,
+    backgroundColor: colors.card,
+    paddingLeft: 12,
+    paddingRight: 6,
+  },
 });

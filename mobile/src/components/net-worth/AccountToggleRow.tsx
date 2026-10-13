@@ -1,4 +1,5 @@
 import type { AccountSummary } from '@contract';
+import * as Haptics from 'expo-haptics';
 import { Switch, Text, View } from 'react-native';
 
 import { colors, space, type } from '@/constants/theme';
@@ -24,10 +25,13 @@ export function AccountToggleRow({
           {sub}
         </Text>
       </View>
-      <Text style={[type.label, !include && { color: colors.textIgnored }]}>{money(account.balance)}</Text>
+      <Text style={[type.label, { fontVariant: ['tabular-nums'] }, !include && { color: colors.textIgnored }]}>{money(account.balance)}</Text>
       <Switch
         value={include}
-        onValueChange={onToggle}
+        onValueChange={(v) => {
+          void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+          onToggle(v);
+        }}
         trackColor={{ false: colors.track, true: colors.brand }}
         ios_backgroundColor={colors.track}
         accessibilityLabel={`Include ${account.name} in net worth`}

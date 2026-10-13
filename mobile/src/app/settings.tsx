@@ -6,8 +6,10 @@ import { Alert, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
 import { InstitutionCard } from '@/components/settings/InstitutionCard';
-import { Button, Card, Divider, EmptyState, ErrorState, ListRow, Screen, SectionHeader, Skeleton } from '@/components/ui';
-import { colors, space } from '@/constants/theme';
+import { Link } from 'lucide-react-native';
+
+import { Button, Card, Divider, EmptyState, ErrorState, ListRow, Screen, SectionHeader, SkeletonCard } from '@/components/ui';
+import { space } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { money, relativeTime } from '@/lib/format';
@@ -107,9 +109,9 @@ export default function SettingsScreen() {
       {accounts.error && !accounts.data ? (
         <ErrorState onRetry={accounts.refresh} />
       ) : !accounts.data ? (
-        <Skeleton height={160} />
+        <SkeletonCard rows={3} />
       ) : items.size === 0 ? (
-        <EmptyState title="No linked accounts" body="Add an account to start tracking your money." />
+        <EmptyState icon={Link} title="No linked accounts" body="Add an account to start tracking your money." />
       ) : (
         [...items].map(([itemId, accts]) => (
           <InstitutionCard

@@ -5,9 +5,11 @@ import { Text } from 'react-native';
 
 import { openTxn, TransactionRow } from '@/components/transactions';
 import { BackButton } from '@/components/BackButton';
-import { Button, Card, Divider, EmptyState, ErrorState, Screen, Skeleton } from '@/components/ui';
+import { Receipt } from 'lucide-react-native';
+
+import { Button, Card, Divider, EmptyState, ErrorState, Money, Screen, Skeleton, SkeletonCard } from '@/components/ui';
 import { colors, space, type } from '@/constants/theme';
-import { money, monthLabel } from '@/lib/format';
+import { monthLabel } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 
 export default function CategoryDetail() {
@@ -23,10 +25,17 @@ export default function CategoryDetail() {
     <Screen title={label ?? 'Category'} left={<BackButton />} refreshing={loading && !!data} onRefresh={refresh}>
       <Text style={[type.labelS, { color: colors.textSubtle }]}>{monthLabel(month)}</Text>
       {!data ? (
-        error && !loading ? <ErrorState onRetry={refresh} /> : <Skeleton height={300} />
+        error && !loading ? (
+          <ErrorState onRetry={refresh} />
+        ) : (
+          <>
+            <Skeleton height={40} width={140} />
+            <SkeletonCard rows={5} heading={false} />
+          </>
+        )
       ) : (
         <>
-          <Text style={type.headingL}>{money(total)}</Text>
+          <Money value={total} size="l" countUp={400} />
           <Card style={{ paddingVertical: space(1) }}>
             {txns.length ? (
               txns.map((t, i) => (
@@ -36,7 +45,7 @@ export default function CategoryDetail() {
                 </Fragment>
               ))
             ) : (
-              <EmptyState title="No transactions" body="Nothing in this category this month." />
+              <EmptyState icon={Receipt} title="No transactions" body="Nothing in this category this month." />
             )}
           </Card>
           <Button

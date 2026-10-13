@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { PickerSheet, TransactionList, categoryOptions, useTxnStore } from '@/components/transactions';
-import { ErrorState, Screen, Skeleton } from '@/components/ui';
+import { ErrorState, Screen, Skeleton, SkeletonRow } from '@/components/ui';
 import { colors, radius, space, type } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { monthLabel } from '@/lib/format';
@@ -93,9 +93,10 @@ export default function TransactionsScreen() {
   let body;
   if (status === 'loading' && items.length === 0) {
     body = (
-      <View style={{ padding: space(4), gap: space(3) }}>
+      <View style={{ paddingHorizontal: space(4), paddingTop: space(3), gap: space(4) }}>
+        <Skeleton height={36} style={{ marginHorizontal: -space(4) }} />
         {[0, 1, 2, 3, 4, 5].map((i) => (
-          <Skeleton key={i} height={48} />
+          <SkeletonRow key={i} />
         ))}
       </View>
     );

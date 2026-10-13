@@ -6,7 +6,7 @@ import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { BackButton } from '@/components/BackButton';
 import { currentMonth } from '@/components/spending/month';
-import { Button, Card, Divider, ErrorState, Screen, Skeleton } from '@/components/ui';
+import { Button, Card, Divider, ErrorState, Screen, SkeletonCard } from '@/components/ui';
 import { colors, radius, space, type } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { money, monthLabel } from '@/lib/format';
@@ -63,7 +63,7 @@ export default function BudgetEditor() {
       {failed ? (
         <ErrorState onRetry={() => void Promise.all([cats.refresh(), spend.refresh()])} />
       ) : !cats.data || !spend.data ? (
-        <Skeleton height={400} />
+        <SkeletonCard rows={6} heading={false} />
       ) : (
         <>
           <Card style={{ paddingVertical: space(1) }}>

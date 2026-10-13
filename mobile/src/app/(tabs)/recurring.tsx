@@ -1,9 +1,10 @@
 import type { RecurringResponse, RecurringStream } from '@contract';
+import { CalendarCheck, Repeat } from 'lucide-react-native';
 import { useState } from 'react';
 import { Text, View } from 'react-native';
 
 import { KIND_SECTIONS, RecurringCalendar, RecurringRow, dueLabel, monthlyAmount } from '@/components/recurring';
-import { Card, Divider, EmptyState, ErrorState, Screen, Segmented, Skeleton } from '@/components/ui';
+import { Card, Divider, EmptyState, ErrorState, Screen, Segmented, Skeleton, SkeletonCard } from '@/components/ui';
 import { colors, space, type } from '@/constants/theme';
 import { daysBetween, money } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
@@ -19,19 +20,29 @@ export default function RecurringScreen() {
   const { data, error, loading, refresh } = useApi<RecurringResponse>('/api/mobile/recurring');
 
   let body;
-  if (!data && loading) body = [180, 320, 64, 64].map((h, i) => <Skeleton key={i} height={h} />);
+  if (!data && loading)
+    body = (
+      <>
+        <Skeleton height={24} width={243} />
+        <Card style={{ gap: space(3) }}>
+          <Skeleton height={24} width={96} />
+          <Skeleton height={240} />
+        </Card>
+        <SkeletonCard rows={4} heading={false} />
+      </>
+    );
   else if (!data) body = error ? <ErrorState onRetry={refresh} /> : null;
-  else body = tab === 'upcoming' ? <Upcoming {...data} /> : <All streams={data.streams} />;
+  else body = tab === 'upcoming' ? <Upcoming {...data} onSeeAll={() => setTab('all')} /> : <All streams={data.streams} />;
 
   return (
     <Screen title="Recurring" refreshing={loading && !!data} onRefresh={refresh}>
-      <Segmented options={TABS} value={tab} onChange={setTab} />
+      <Segmented variant="tabs" options={TABS} value={tab} onChange={setTab} />
       {body}
     </Screen>
   );
 }
 
-function Upcoming({ today, streams }: RecurringResponse) {
+function Upcoming({ today, streams, onSeeAll }: RecurringResponse & { onSeeAll?: () => void }) {
   const upcoming = streams
     .filter((s) => s.isActive && s.nextDate && s.nextDate >= today)
     .sort((a, b) => a.nextDate!.localeCompare(b.nextDate!));
@@ -39,23 +50,28 @@ function Upcoming({ today, streams }: RecurringResponse) {
 
   return (
     <>
-      <Text style={[type.paragraphL, { color: colors.textSubtle }]}>
-        {dueSoon
-          ? `You have ${dueSoon} recurring charge${dueSoon === 1 ? '' : 's'} due in the next 7 days`
-          : 'You do not have any recurring charges within the next 7 days.'}
-      </Text>
+      {dueSoon ? (
+        <Text style={[type.paragraphL, { color: colors.textSubtle }]}>
+          {`You have ${dueSoon} recurring charge${dueSoon === 1 ? '' : 's'} due in the next 7 days`}
+        </Text>
+      ) : null}
       <RecurringCalendar today={today} streams={streams} />
-      {upcoming.length ? (
-        <Rows streams={upcoming} due={(s) => dueLabel(today, s.nextDate!)} />
-      ) : (
-        <EmptyState title="Nothing upcoming" body="Recurring charges appear here once we spot a pattern." />
-      )}
+      {dueSoon === 0 ? (
+        <EmptyState
+          icon={CalendarCheck}
+          title="Nothing due this week"
+          body="You do not have any recurring charges within the next 7 days."
+          action={onSeeAll ? { label: 'See all recurring', onPress: onSeeAll } : undefined}
+        />
+      ) : null}
+      {upcoming.length ? <Rows streams={upcoming} due={(s) => dueLabel(today, s.nextDate!)} /> : null}
     </>
   );
 }
 
 function All({ streams }: { streams: RecurringStream[] }) {
-  if (!streams.length) return <EmptyState title="No recurring charges yet" body="We'll list them once we spot a pattern." />;
+  if (!streams.length)
+    return <EmptyState icon={Repeat} title="No recurring charges yet" body="We'll list them once we spot a pattern." />;
   return KIND_SECTIONS.map(({ kind, title }) => {
     const items = streams.filter((s) => (s.isActive ? s.kind : 'inactive') === kind);
     if (!items.length) return null;
@@ -64,7 +80,7 @@ function All({ streams }: { streams: RecurringStream[] }) {
       <View key={kind} style={{ gap: space(2) }}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: space(2) }}>
           <Text style={[type.tracked, { color: colors.textSubtle }]}>{title}</Text>
-          <Text style={[type.labelS, { color: colors.textSubtle }]} accessibilityLabel={`${money(total)} per month`}>
+          <Text style={[type.labelS, { color: colors.textSubtle, fontVariant: ['tabular-nums'] }]} accessibilityLabel={`${money(total)} per month`}>
             {money(total)}/mo
           </Text>
         </View>

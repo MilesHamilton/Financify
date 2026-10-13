@@ -6,7 +6,7 @@ import { Pressable, Text, View } from 'react-native';
 import { MerchantLogo } from '@/components/MerchantLogo';
 import { FREQ_LABEL, HistoryBarChart } from '@/components/recurring';
 import { TransactionRow, openTxn, useFreshTxns } from '@/components/transactions';
-import { Card, Divider, EmptyState, ErrorState, Screen, SectionHeader, Skeleton } from '@/components/ui';
+import { Card, Divider, EmptyState, ErrorState, Screen, SectionHeader, Skeleton, SkeletonCard } from '@/components/ui';
 import { colors, space, type } from '@/constants/theme';
 import { money, shortDate } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
@@ -25,7 +25,19 @@ export default function RecurringDetail() {
   if (!data) {
     return (
       <Screen left={back}>
-        {loading ? [96, 160, 64].map((h, i) => <Skeleton key={i} height={h} />) : error ? <ErrorState onRetry={refresh} /> : null}
+        {loading ? (
+          <>
+            <View style={{ alignItems: 'center', gap: space(2) }}>
+              <Skeleton height={64} width={64} round />
+              <Skeleton height={24} width={140} />
+              <Skeleton height={40} width={120} />
+            </View>
+            <Skeleton height={140} />
+            <SkeletonCard rows={3} heading={false} />
+          </>
+        ) : error ? (
+          <ErrorState onRetry={refresh} />
+        ) : null}
       </Screen>
     );
   }
@@ -37,7 +49,7 @@ export default function RecurringDetail() {
       <View style={{ alignItems: 'center', gap: space(1) }}>
         <MerchantLogo uri={stream.logoUrl} name={stream.name} size={64} />
         <Text style={type.headingXS}>{stream.name}</Text>
-        <Text style={[type.headingXL, income && { color: colors.success }]}>
+        <Text style={[type.headingXL, { fontVariant: ['tabular-nums'] }, income && { color: colors.success }]}>
           {income ? '+' : ''}
           {money(stream.amount)}
         </Text>

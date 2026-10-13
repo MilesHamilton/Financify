@@ -1,9 +1,9 @@
 import type { Category, Txn } from '@contract';
-import { Pressable, View } from 'react-native';
+import { View } from 'react-native';
 
 import { CategoryIcon } from '@/components/CategoryIcon';
 import { MerchantLogo } from '@/components/MerchantLogo';
-import { ListRow } from '@/components/ui';
+import { ListRow, PressableRow } from '@/components/ui';
 import { colors } from '@/constants/theme';
 import { money, shortDate } from '@/lib/format';
 
@@ -23,7 +23,7 @@ export function TransactionRow({ txn, onPress, showDate = false }: { txn: Txn; o
   const row = (
     <View style={{ opacity: txn.isExcluded ? 0.5 : 1 }}>
       <ListRow
-        leading={txn.logoUrl ? <MerchantLogo uri={txn.logoUrl} name={title} /> : <CategoryBadge category={txn.category} />}
+        leading={<MerchantLogo uri={txn.logoUrl} name={title} fallback={<CategoryBadge category={txn.category} />} />}
         title={title}
         subtitle={`${txn.category.label} · ${showDate ? shortDate(txn.date) : txn.accountName}`}
         value={amount}
@@ -34,13 +34,11 @@ export function TransactionRow({ txn, onPress, showDate = false }: { txn: Txn; o
   );
   if (!onPress) return row;
   return (
-    <Pressable
+    <PressableRow
       onPress={onPress}
-      accessibilityRole="button"
       accessibilityLabel={`${title}, ${amount}${txn.pending ? ', pending' : ''}${txn.isExcluded ? ', ignored' : ''}`}
-      style={({ pressed }) => (pressed ? { opacity: 0.7 } : null)}
     >
       {row}
-    </Pressable>
+    </PressableRow>
   );
 }

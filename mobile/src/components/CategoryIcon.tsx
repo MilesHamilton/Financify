@@ -17,6 +17,8 @@ import {
 } from 'lucide-react-native';
 import { View } from 'react-native';
 
+import { colors } from '@/constants/theme';
+
 // Keys match the icon names seeded in src/db/seed.ts.
 const ICONS: Record<string, LucideIcon> = {
   'arrow-left-right': ArrowLeftRight,
@@ -51,7 +53,7 @@ export function CategoryIcon({ icon, color, size = 36 }: { icon: string; color: 
         justifyContent: 'center',
       }}
     >
-      <Icon size={size * 0.5} color="#FFFFFF" strokeWidth={2} />
+      <Icon size={size * 0.5} color={colors.text} strokeWidth={2} />
     </View>
   );
 }

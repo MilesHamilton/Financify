@@ -2,27 +2,32 @@ import type { DashboardResponse } from '@contract';
 import { router } from 'expo-router';
 import { RefreshCw, Settings } from 'lucide-react-native';
 import { Fragment, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { useDailySpend } from '@/components/daily-spend/model';
 import { AccountsCard } from '@/components/dashboard/AccountsCard';
 import { SpendCarousel } from '@/components/dashboard/SpendCarousel';
 import { openTxn, TransactionRow } from '@/components/transactions';
 import { UpcomingCard } from '@/components/dashboard/UpcomingCard';
-import { Button, Card, Divider, ErrorState, ProgressBar, Screen, SectionHeader, Skeleton } from '@/components/ui';
+import { Button, Card, Divider, ErrorState, ProgressBar, Screen, SectionHeader, Skeleton, SkeletonCard } from '@/components/ui';
 import { colors, space, type } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { money, relativeTime } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
 
+const openDay = (date: string) => router.push({ pathname: '/daily-spend/day', params: { date } });
+
 export default function Dashboard() {
   const { data, error, loading, refresh } = useApi<DashboardResponse>('/api/mobile/dashboard');
+  const daily = useDailySpend();
   const [syncing, setSyncing] = useState(false);
+  const [scrubbing, setScrubbing] = useState(false);
 
   const sync = async () => {
     setSyncing(true);
     try {
       await api('/api/sync/trigger', { method: 'POST', body: {} });
-      await refresh();
+      await Promise.all([refresh(), daily.refresh()]);
     } catch {
       // shortcut: sync failure is silent; the "N hours ago" label stays stale as the signal.
     } finally {
@@ -31,12 +36,19 @@ export default function Dashboard() {
   };
 
   return (
-    <Screen refreshing={loading && !!data} onRefresh={refresh}>
+    <Screen
+      refreshing={loading && !!data}
+      onRefresh={() => void Promise.all([refresh(), daily.refresh()])}
+      scrollEnabled={!scrubbing}
+    >
       <View style={styles.header}>
         <Pressable onPress={() => router.push('/settings')} accessibilityRole="button" accessibilityLabel="Settings" hitSlop={8}>
           <Settings size={24} color={colors.text} />
         </Pressable>
-        <Text style={[type.headingXS, styles.wordmark]}>Financify</Text>
+        <View style={styles.brand} accessible accessibilityRole="header" accessibilityLabel="Financify">
+          <Image source={require('../../../assets/logo-mark.png')} style={styles.mark} />
+          <Text style={type.headingXS}>Financify</Text>
+        </View>
         <View style={{ width: 24 }} />
       </View>
 
@@ -45,14 +57,25 @@ export default function Dashboard() {
           <ErrorState onRetry={refresh} />
         ) : (
           <>
-            <Skeleton height={280} />
-            <Skeleton height={180} />
-            <Skeleton height={140} />
+            <Card style={{ padding: 20, gap: space(4) }}>
+              <Skeleton height={16} width={140} />
+              <Skeleton height={48} width={120} />
+              <Skeleton height={32} />
+              <Skeleton height={16} width={200} />
+            </Card>
+            <SkeletonCard rows={3} heading={false} />
+            <SkeletonCard rows={4} />
           </>
         )
       ) : (
         <>
-          <SpendCarousel data={data} />
+          <SpendCarousel
+            data={data}
+            daily={daily.data}
+            onOpenDaily={() => router.navigate({ pathname: '/spending', params: { tab: 'daily' } })}
+            onSelectDay={openDay}
+            onScrubbing={setScrubbing}
+          />
 
           <SectionHeader title="Accounts" action="Add account" onAction={() => router.push('/settings')} />
           <AccountsCard accounts={data.accounts} />
@@ -81,7 +104,7 @@ export default function Dashboard() {
               </Fragment>
             ))}
             <Pressable onPress={() => router.push('/transactions')} accessibilityRole="link" hitSlop={8} style={{ paddingVertical: space(2) }}>
-              <Text style={[type.labelS, { color: colors.brandText }]}>View all</Text>
+              {({ pressed }) => <Text style={[type.labelS, { color: pressed ? colors.brand : colors.brandText }]}>View all</Text>}
             </Pressable>
           </Card>
 
@@ -91,10 +114,10 @@ export default function Dashboard() {
               <>
                 <ProgressBar value={data.spendThisMonth} max={data.budgetTotal} />
                 <View style={styles.budgetRow}>
-                  <Text style={[type.paragraph, { color: colors.textSubtle }]}>
+                  <Text style={[type.paragraph, styles.num, { color: colors.textSubtle }]}>
                     {money(data.spendThisMonth, true)} of {money(data.budgetTotal, true)}
                   </Text>
-                  <Text style={[type.labelS, data.spendThisMonth > data.budgetTotal && { color: colors.warning }]}>
+                  <Text style={[type.labelS, styles.num, data.spendThisMonth > data.budgetTotal && { color: colors.warning }]}>
                     {money(Math.abs(data.budgetTotal - data.spendThisMonth), true)}{' '}
                     {data.spendThisMonth > data.budgetTotal ? 'Over Budget' : 'Left to Spend'}
                   </Text>
@@ -115,7 +138,9 @@ export default function Dashboard() {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingTop: space(2) },
-  wordmark: { flex: 1, textAlign: 'center' },
+  brand: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space(2) },
+  mark: { width: 24, height: 24 },
   sync: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space(1.5) },
   budgetRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  num: { fontVariant: ['tabular-nums'] },
 });
