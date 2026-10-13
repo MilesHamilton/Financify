@@ -131,7 +131,7 @@ export default function TransactionsScreen() {
           accessibilityLabel="Search my transactions"
         />
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={{ flexGrow: 0 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chips} style={{ flexGrow: 0, flexShrink: 0 }}>
         <Chip
           label={filters.category ? categoryLabel : 'Category'}
           active={!!filters.category}

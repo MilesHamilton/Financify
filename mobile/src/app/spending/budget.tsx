@@ -4,7 +4,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { CategoryIcon } from '@/components/CategoryIcon';
-import { BackButton } from '@/components/spending/BackButton';
+import { BackButton } from '@/components/BackButton';
 import { currentMonth } from '@/components/spending/month';
 import { Button, Card, Divider, ErrorState, Screen, Skeleton } from '@/components/ui';
 import { colors, radius, space, type } from '@/constants/theme';

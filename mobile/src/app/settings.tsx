@@ -1,12 +1,12 @@
 import type { NetWorthResponse } from '@contract';
 import Constants from 'expo-constants';
-import { Stack } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { Alert, RefreshControl, ScrollView, View } from 'react-native';
+import { Alert, View } from 'react-native';
 
+import { BackButton } from '@/components/BackButton';
 import { InstitutionCard } from '@/components/settings/InstitutionCard';
-import { Button, Card, Divider, EmptyState, ErrorState, ListRow, SectionHeader, Skeleton } from '@/components/ui';
+import { Button, Card, Divider, EmptyState, ErrorState, ListRow, Screen, SectionHeader, Skeleton } from '@/components/ui';
 import { colors, space } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
@@ -93,29 +93,15 @@ export default function SettingsScreen() {
   const income = s?.monthlyIncomeOverride;
 
   return (
-    <ScrollView
-      style={{ backgroundColor: colors.bg }}
-      contentContainerStyle={{ padding: space(4), paddingBottom: space(10), gap: space(4) }}
-      refreshControl={
-        <RefreshControl
-          refreshing={(accounts.loading && !!accounts.data) || (settings.loading && !!s)}
-          onRefresh={() => {
-            void accounts.refresh();
-            void settings.refresh();
-          }}
-          tintColor={colors.textSubtle}
-        />
-      }
+    <Screen
+      title="Settings"
+      left={<BackButton />}
+      refreshing={(accounts.loading && !!accounts.data) || (settings.loading && !!s)}
+      onRefresh={() => {
+        void accounts.refresh();
+        void settings.refresh();
+      }}
     >
-      <Stack.Screen
-        options={{
-          headerShown: true,
-          title: 'Settings',
-          headerStyle: { backgroundColor: colors.bg },
-          headerTintColor: colors.text,
-          headerShadowVisible: false,
-        }}
-      />
 
       <SectionHeader title="Accounts" />
       {accounts.error && !accounts.data ? (
@@ -173,6 +159,6 @@ export default function SettingsScreen() {
         <Divider />
         <ListRow title="Log out" onPress={confirmLogOut} />
       </Card>
-    </ScrollView>
+    </Screen>
   );
 }

@@ -1,11 +1,11 @@
 import type { AccountGroup, AccountSummary, NetWorthRange, NetWorthResponse } from '@contract';
-import { Stack } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { Alert, Pressable, Text, View } from 'react-native';
 
+import { BackButton } from '@/components/BackButton';
 import { AccountToggleRow } from '@/components/net-worth/AccountToggleRow';
-import { NetWorthChart } from '@/components/net-worth/NetWorthChart';
-import { Card, Divider, ErrorState, ListRow, Segmented, SectionHeader, Skeleton } from '@/components/ui';
+import { SpendChart } from '@/components/SpendChart';
+import { Card, Divider, ErrorState, ListRow, Screen, Segmented, SectionHeader, Skeleton } from '@/components/ui';
 import { colors, space, type } from '@/constants/theme';
 import { api } from '@/lib/api';
 import { money } from '@/lib/format';
@@ -61,24 +61,11 @@ export default function NetWorthScreen() {
     void refresh();
   }
 
-  const header = (
-    <Stack.Screen
-      options={{
-        headerShown: true,
-        title: 'Net Worth',
-        headerStyle: { backgroundColor: colors.bg },
-        headerTintColor: colors.text,
-        headerShadowVisible: false,
-      }}
-    />
-  );
-
   if (error && !data) {
     return (
-      <View style={{ flex: 1, backgroundColor: colors.bg, padding: space(4) }}>
-        {header}
+      <Screen title="Net Worth" left={<BackButton />}>
         <ErrorState onRetry={refresh} />
-      </View>
+      </Screen>
     );
   }
 
@@ -94,12 +81,7 @@ export default function NetWorthScreen() {
   const groups = tab === 'summary' ? [...ASSET_GROUPS, ...DEBT_GROUPS] : tab === 'assets' ? ASSET_GROUPS : DEBT_GROUPS;
 
   return (
-    <ScrollView
-      style={{ backgroundColor: colors.bg }}
-      contentContainerStyle={{ padding: space(4), paddingBottom: space(10), gap: space(4) }}
-      refreshControl={<RefreshControl refreshing={loading && !!data} onRefresh={refresh} tintColor={colors.textSubtle} />}
-    >
-      {header}
+    <Screen title="Net Worth" left={<BackButton />} refreshing={loading && !!data} onRefresh={refresh}>
       <Segmented options={TABS} value={tab} onChange={setTab} />
 
       {!data ? (
@@ -121,7 +103,10 @@ export default function NetWorthScreen() {
             </Text>
           </View>
 
-          {series.length > 0 ? <NetWorthChart values={series} /> : null}
+          {series.length > 0 ? (
+            // Offset by the minimum so the line spans the chart (and negative net worth plots).
+            <SpendChart current={series.map((v) => v - Math.min(...series))} prior={[]} budget={null} daysInMonth={series.length} height={160} />
+          ) : null}
           <Segmented options={RANGES} value={range} onChange={setRange} />
 
           {tab === 'summary' ? (
@@ -171,6 +156,6 @@ export default function NetWorthScreen() {
           </Pressable>
         </>
       )}
-    </ScrollView>
+    </Screen>
   );
 }

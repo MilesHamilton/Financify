@@ -77,7 +77,7 @@ export default function Dashboard() {
             {data.recent.map((t, i) => (
               <Fragment key={t.id}>
                 {i > 0 ? <Divider inset={48} /> : null}
-                <TransactionRow txn={t} onPress={() => openTxn(t)} />
+                <TransactionRow txn={t} onPress={() => openTxn(t)} showDate />
               </Fragment>
             ))}
             <Pressable onPress={() => router.push('/transactions')} accessibilityRole="link" hitSlop={8} style={{ paddingVertical: space(2) }}>

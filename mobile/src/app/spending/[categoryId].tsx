@@ -4,7 +4,7 @@ import { Fragment } from 'react';
 import { Text } from 'react-native';
 
 import { openTxn, TransactionRow } from '@/components/transactions';
-import { BackButton } from '@/components/spending/BackButton';
+import { BackButton } from '@/components/BackButton';
 import { Button, Card, Divider, EmptyState, ErrorState, Screen, Skeleton } from '@/components/ui';
 import { colors, space, type } from '@/constants/theme';
 import { money, monthLabel } from '@/lib/format';
@@ -32,7 +32,7 @@ export default function CategoryDetail() {
               txns.map((t, i) => (
                 <Fragment key={t.id}>
                   {i > 0 ? <Divider inset={48} /> : null}
-                  <TransactionRow txn={t} onPress={() => openTxn(t)} />
+                  <TransactionRow txn={t} onPress={() => openTxn(t)} showDate />
                 </Fragment>
               ))
             ) : (

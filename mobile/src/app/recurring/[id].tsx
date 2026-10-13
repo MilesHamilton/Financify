@@ -59,7 +59,7 @@ export default function RecurringDetail() {
           {history.map((t, i) => (
             <View key={t.id}>
               {i > 0 ? <Divider inset={48} /> : null}
-              <TransactionRow txn={t} onPress={() => openTxn(t)} />
+              <TransactionRow txn={t} onPress={() => openTxn(t)} showDate />
             </View>
           ))}
         </Card>
