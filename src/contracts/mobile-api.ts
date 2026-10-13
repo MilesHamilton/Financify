@@ -171,3 +171,83 @@ export interface NetWorthResponse {
 
 // POST /api/plaid/link/start → { hosted_link_url }  (existing route)
 // POST /api/sync/trigger (existing route)
+
+// GET /api/mobile/daily-spend?month=YYYY-MM  (default: current NY month; future month → 400)
+export type DailySpendStatus =
+  | 'super_saver' // projected savings ≥ 105 % of target
+  | 'on_track' // ≥ 99 % (or no target and projected ≥ 0)
+  | 'at_risk' // below 99 %
+  | 'over_budget' // flexible spend already exceeds the flexible budget
+  | 'no_income'; // no income estimate and no override → allowance unavailable
+
+export interface DailySpendDay {
+  /** "YYYY-MM-DD" (America/New_York calendar day). */
+  date: string;
+  /** 1-based day of month. */
+  day: number;
+  /** Flexible (non-bill, non-excluded) spend dated this day. 0 for future days. */
+  spent: number;
+  /** Start-of-day allowance, whole dollars, ≥ 0. Future days carry today's tomorrowAllowance. null when 'no_income'. */
+  allowance: number | null;
+  /** Running flexible spend through the end of this day. null for days after today. */
+  cumulative: number | null;
+  /** Ideal straight-line cumulative flexibleBudget × day / daysInMonth. null when 'no_income'. */
+  pace: number | null;
+  isToday: boolean;
+  isFuture: boolean;
+}
+
+export interface DailySpendToday {
+  date: string;
+  /** Days left in the month including today (≥ 1). */
+  daysRemaining: number;
+  /** Today's allowance, frozen at start of day (whole dollars, ≥ 0). null when 'no_income'. */
+  allowance: number | null;
+  /** Unclamped, unfloored allowance — negative means already over. */
+  allowanceRaw: number | null;
+  /** Flexible spend so far today, pending included. */
+  spent: number;
+  /** allowance − spent; negative = over today's allowance. */
+  left: number | null;
+  /** What tomorrow's allowance becomes given today's spend so far. null on the last day. */
+  tomorrowAllowance: number | null;
+  /** Positive amount the month is over the flexible budget, else 0. */
+  overBy: number;
+}
+
+export interface DailySpendResponse {
+  month: string;
+  isCurrentMonth: boolean;
+  daysInMonth: number;
+  plan: {
+    income: number;
+    usingIncomeOverride: boolean;
+    savingsTarget: number;
+    /** Monthly-normalised expected bills from active bill streams. */
+    billsExpected: number;
+    billsPaid: number;
+    billsLeftToPay: number;
+    /** income − savingsTarget − max(billsExpected, billsPaid). null when 'no_income'. */
+    flexibleBudget: number | null;
+    /** false when the target plus bills exceed income. */
+    isFeasible: boolean;
+  };
+  totals: {
+    flexibleSpent: number;
+    /** flexibleBudget − flexibleSpent (may be negative). null when 'no_income'. */
+    remaining: number | null;
+    /** Trailing-30-day flexible spend ÷ 30. */
+    averagePerDay: number;
+    /** income − bills − flexibleSpent − averagePerDay × days after today. null when 'no_income'. */
+    projectedSavings: number | null;
+    /** round(projectedSavings / savingsTarget × 100); null when target is 0 or 'no_income'. */
+    percentOfTarget: number | null;
+  };
+  status: DailySpendStatus;
+  /** Ready-to-render hero copy (server-owned). Past months get a budget verdict instead. */
+  copy: { title: string; body: string; chip: string };
+  /** null for past months. */
+  today: DailySpendToday | null;
+  /** One entry per calendar day of the month, day 1 … daysInMonth. */
+  days: DailySpendDay[];
+}

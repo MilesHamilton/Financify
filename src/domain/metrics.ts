@@ -1168,7 +1168,7 @@ export interface BudgetStatusV2Result {
  * This identical predicate is replicated in getRecurringMonth (T-R21) for
  * consistency. Any change here must be mirrored there.
  */
-const BILL_MATCH_EXISTS = sql`
+export const BILL_MATCH_EXISTS = sql`
   EXISTS (
     SELECT 1 FROM recurring_streams rs
     WHERE rs.is_active = true

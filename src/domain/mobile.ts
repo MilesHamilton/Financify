@@ -53,6 +53,7 @@ import { getAllStreams, mapStreamToContract, getLatestMatchingLogoUrl } from "@/
 
 export { getRecurringStreamsData, getRecurringStreamDetailData } from "@/domain/mobile-recurring";
 export { getNetWorthData } from "@/domain/mobile-networth";
+export { getDailySpendData } from "@/domain/mobile-daily-spend";
 
 // ---------------------------------------------------------------------------
 // GET /api/mobile/categories
