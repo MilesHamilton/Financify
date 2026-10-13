@@ -35,7 +35,7 @@ if [[ -z "$UDID" ]]; then
 fi
 
 echo "› Device $UDID, API $EXPO_PUBLIC_API_URL"
-CI=1 npx expo prebuild --platform ios
+CI=1 npx expo prebuild --platform ios --clean
 
 (cd ios && xcodebuild \
   -workspace Financify.xcworkspace \

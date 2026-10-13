@@ -11,13 +11,24 @@
       "bundleIdentifier": "com.mileshamilton.financify",
       "supportsTablet": false,
       "appleTeamId": "CRWZ356NAX",
-      "infoPlist": { "ITSAppUsesNonExemptEncryption": false }
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      ["expo-splash-screen", { "backgroundColor": "#0A0F1C", "imageWidth": 120 }]
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0A0F1C",
+          "imageWidth": 120
+        }
+      ],
+      "./plugins/with-scene-lifecycle.js"
     ],
-    "experiments": { "typedRoutes": true }
+    "experiments": {
+      "typedRoutes": true
+    }
   }
 }
