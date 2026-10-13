@@ -22,7 +22,6 @@
 import { requireSession } from "@/lib/api-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { eq, ne, inArray } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { db } from "@/db";
 import { transactions, categoryRules } from "@/db/schema";
 import {
@@ -163,9 +162,6 @@ export async function PUT(
   }
 
   if (updatedCount > 0) {
-    revalidatePath("/transactions");
-    revalidatePath("/");
-    revalidatePath("/spending");
   }
 
   return NextResponse.json({ updated: updatedCount }, { status: 200 });

@@ -1,27 +1,16 @@
-import Link from "next/link";
-
 /**
  * OAuth redirect URI landing page (PLAID_REDIRECT_URI, allowlisted in the
- * Plaid Dashboard). With Hosted Link, Plaid normally completes the OAuth
- * round-trip on its own hosted page — a user only lands here in edge flows,
- * so this page just routes them back gracefully instead of 404ing.
+ * Plaid Dashboard). Hosted Link normally completes the OAuth round-trip on
+ * its own page; users only land here in edge flows.
  */
 export default function OAuthReturnPage() {
   return (
-    <main className="flex min-h-svh flex-col items-center justify-center gap-4 bg-[var(--color-canvas)] px-6 text-center">
-      <h1 className="text-xl font-semibold text-[var(--color-text)]">
-        Finishing up…
-      </h1>
-      <p className="max-w-sm text-sm text-[var(--color-text-muted)]">
+    <>
+      <h1 style={{ fontSize: 22, fontWeight: 600 }}>Finishing up…</h1>
+      <p style={{ color: "#C1C1C1" }}>
         If the Plaid window didn&apos;t finish on its own, return to it to
-        complete linking — or head back to Financify.
+        complete linking, then go back to the Financify app.
       </p>
-      <Link
-        href="/settings"
-        className="mt-2 rounded-full bg-[var(--color-accent)] px-6 py-3 text-sm font-medium text-[var(--color-canvas)]"
-      >
-        Back to Financify
-      </Link>
-    </main>
+    </>
   );
 }

@@ -1,20 +1,29 @@
 # Financify
 
-A single-user personal finance PWA built with Next.js, Plaid, and Neon (PostgreSQL).
+A single-user personal finance app: a native iOS app (`mobile/`, Expo / React Native, styled after Rocket Money with a blue theme) backed by a Next.js API on Vercel, Plaid and Neon PostgreSQL.
 
 ## Stack
 
-- **Framework:** Next.js (App Router, TypeScript)
+- **iOS app:** Expo 57 / React Native, expo-router (`mobile/`)
+- **API:** Next.js route handlers (App Router, TypeScript); the JSON contract is `src/contracts/mobile-api.ts`
 - **Database:** Neon serverless PostgreSQL via Drizzle ORM
-- **Banking data:** Plaid API
-- **Auth:** Auth.js v5 (next-auth@beta) with Argon2 password hashing
-- **PWA:** Serwist (service worker)
-- **Styling:** Tailwind CSS v4
+- **Banking data:** Plaid (Hosted Link, transactions sync, recurring streams)
+- **Auth:** single user; `POST /api/mobile/login` checks the Argon2 password hash and returns a 90-day bearer token
 
-## Getting Started
+## Backend
 
 Copy `.env.example` to `.env.local` and fill in values, then:
 
 ```bash
 npm run dev
 ```
+
+## iOS app
+
+```bash
+cd mobile && npm install
+npx expo run:ios                       # simulator, API from EXPO_PUBLIC_API_URL
+../scripts/build-sideload-ipa.sh       # unsigned .ipa for SideStore/AltStore
+```
+
+The sideload build points at `https://financify-one.vercel.app` unless `API_URL` is set.

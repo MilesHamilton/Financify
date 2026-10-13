@@ -3,7 +3,6 @@ import { requireSession } from "@/lib/api-auth";
 import { transactions } from "@/db/schema";
 import { createUpdateSchema } from "drizzle-zod";
 import { eq } from "drizzle-orm";
-import { revalidatePath } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
@@ -84,8 +83,6 @@ export async function PATCH(
     return NextResponse.json({ error: "not_found" }, { status: 404 });
   }
 
-  revalidatePath("/transactions");
-  revalidatePath("/");
 
   return NextResponse.json({ success: true });
 }

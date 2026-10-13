@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
 import { errInfo } from "@/lib/log-error";
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
 import { db } from "@/db/index";
 import { appSettings } from "@/db/schema";
 
@@ -125,8 +124,6 @@ export async function PUT(req: NextRequest): Promise<NextResponse> {
       .from(appSettings)
       .limit(1);
 
-    revalidatePath("/budget");
-    revalidatePath("/spending");
 
     return NextResponse.json(updated, { status: 200 });
   } catch (err: unknown) {

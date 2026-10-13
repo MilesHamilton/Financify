@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireSession } from "@/lib/api-auth";
 import { errInfo } from "@/lib/log-error";
 import { z } from "zod";
-import { revalidatePath } from "next/cache";
 import { db } from "@/db/index";
 import { budgets } from "@/db/schema";
 import { sql } from "drizzle-orm";
@@ -134,7 +133,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 // are untouched, so budget history across months is preserved (FR-035).
 //
 // On UNIQUE(category_id, effective_month) conflict → amount is updated (upsert).
-// On success → revalidatePath('/spending') (TR § 1.8 / FR-028).
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -193,9 +191,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         effectiveMonth: budgets.effectiveMonth,
       });
 
-    revalidatePath("/spending");
-    // T-R32: also invalidate /budget so budget edits are reflected immediately
-    revalidatePath("/budget");
 
     return NextResponse.json(inserted, { status: 201 });
   } catch (err: unknown) {

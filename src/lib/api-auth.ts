@@ -1,7 +1,6 @@
 import "server-only";
 import { headers } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
-import { auth } from "../../auth";
 
 const AUDIENCE = "financify-mobile";
 const TOKEN_TTL = "90d";
@@ -23,22 +22,16 @@ export async function issueMobileToken(username: string): Promise<string> {
     .sign(secretKey());
 }
 
-/**
- * Drop-in replacement for `auth()` in API routes: accepts a mobile bearer
- * token or falls back to the web session cookie. Returns null when neither is valid.
- */
+/** Verifies the iOS app's bearer token; returns null when missing or invalid. */
 export async function requireSession(): Promise<{ user: { name: string } } | null> {
   const header = (await headers()).get("authorization");
-  if (header?.startsWith("Bearer ")) {
-    try {
-      const { payload } = await jwtVerify(header.slice(7), secretKey(), {
-        audience: AUDIENCE,
-      });
-      return { user: { name: String(payload.name ?? "") } };
-    } catch {
-      return null;
-    }
+  if (!header?.startsWith("Bearer ")) return null;
+  try {
+    const { payload } = await jwtVerify(header.slice(7), secretKey(), {
+      audience: AUDIENCE,
+    });
+    return { user: { name: String(payload.name ?? "") } };
+  } catch {
+    return null;
   }
-  const session = await auth();
-  return session?.user ? { user: { name: session.user.name ?? "" } } : null;
 }
