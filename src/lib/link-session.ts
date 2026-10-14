@@ -2,9 +2,9 @@ import "server-only";
 
 import { plaidClient } from "@/lib/plaid";
 import { encryptToken } from "@/lib/crypto";
-import { syncItem } from "@/lib/sync";
+import { applyAccounts, syncItem } from "@/lib/sync";
 import { db } from "@/db";
-import { items, accounts, syncEvents } from "@/db/schema";
+import { items, syncEvents } from "@/db/schema";
 
 /**
  * Handles a successful Plaid Hosted Link SESSION_FINISHED (FR-009).
@@ -89,56 +89,7 @@ export async function handleSessionFinished(
     access_token: plainAccessToken,
   });
 
-  // Each account is upserted individually. At item-link time there are
-  // typically 1–5 accounts; N single-row upserts are negligible.
-  for (const acct of accountsResp.data.accounts) {
-    await db
-      .insert(accounts)
-      .values({
-        id: acct.account_id,
-        itemId,
-        name: acct.name,
-        officialName: acct.official_name ?? null,
-        mask: acct.mask ?? null,
-        type: String(acct.type),
-        subtype: acct.subtype != null ? String(acct.subtype) : null,
-        currentBalance:
-          acct.balances.current != null
-            ? String(acct.balances.current)
-            : null,
-        availableBalance:
-          acct.balances.available != null
-            ? String(acct.balances.available)
-            : null,
-        creditLimit:
-          acct.balances.limit != null ? String(acct.balances.limit) : null,
-        isoCurrencyCode: acct.balances.iso_currency_code ?? "USD",
-      })
-      .onConflictDoUpdate({
-        target: accounts.id,
-        set: {
-          name: acct.name,
-          officialName: acct.official_name ?? null,
-          mask: acct.mask ?? null,
-          type: String(acct.type),
-          subtype: acct.subtype != null ? String(acct.subtype) : null,
-          currentBalance:
-            acct.balances.current != null
-              ? String(acct.balances.current)
-              : null,
-          availableBalance:
-            acct.balances.available != null
-              ? String(acct.balances.available)
-              : null,
-          creditLimit:
-            acct.balances.limit != null
-              ? String(acct.balances.limit)
-              : null,
-          isoCurrencyCode: acct.balances.iso_currency_code ?? "USD",
-          updatedAt: new Date(),
-        },
-      });
-  }
+  await applyAccounts(db, accountsResp.data.accounts, itemId);
 
   // ── 6. Audit row ──────────────────────────────────────────────────────
   await db.insert(syncEvents).values({

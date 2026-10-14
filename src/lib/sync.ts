@@ -434,7 +434,8 @@ async function applyModified(
 // Apply: accounts[] + balance snapshots
 // ---------------------------------------------------------------------------
 
-async function applyAccounts(
+/** Upserts accounts and today's balance snapshot. Shared with link-time setup (link-session.ts). */
+export async function applyAccounts(
    
   tx: any,
   syncAccounts: AccountBase[],
@@ -756,7 +757,7 @@ function buildPlaidOwnedColumns(t: PlaidTransaction) {
 // Plaid error extraction helpers
 // ---------------------------------------------------------------------------
 
-function extractPlaidErrorCode(err: unknown): string | null {
+export function extractPlaidErrorCode(err: unknown): string | null {
   if (
     err !== null &&
     typeof err === "object" &&

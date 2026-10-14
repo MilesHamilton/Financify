@@ -8,6 +8,7 @@ import { ActivityIndicator, Animated, Image, Pressable, Share, StyleSheet, Text,
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { MerchantLogo } from '@/components/MerchantLogo';
+import { addMonths } from '@/components/spending/month';
 import { Button, ErrorState, Money } from '@/components/ui';
 import { colors, radius, space, type } from '@/constants/theme';
 import { money, parseDay } from '@/lib/format';
@@ -190,7 +191,7 @@ function buildSlides(r: RecapResponse): Slide[] {
         {r.changePct !== null ? (
           <Sub>
             That's <Text style={styles.em}>{pct(r.changePct)} {r.changePct <= 0 ? 'less' : 'more'}</Text> than{' '}
-            {monthName(prevMonth(r.month))}.
+            {monthName(addMonths(r.month, -1))}.
           </Sub>
         ) : null}
         <View style={styles.split}>
@@ -386,11 +387,6 @@ function Tile({ value, label }: { value: string; label: string }) {
 }
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`;
-
-function prevMonth(m: string): string {
-  const [y, mo] = m.split('-').map(Number);
-  return mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`;
-}
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },

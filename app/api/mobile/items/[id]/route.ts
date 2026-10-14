@@ -6,6 +6,7 @@ import { requireSession } from "@/lib/api-auth";
 import { decryptToken } from "@/lib/crypto";
 import { errInfo } from "@/lib/log-error";
 import { plaidClient } from "@/lib/plaid";
+import { extractPlaidErrorCode } from "@/lib/sync";
 
 export const runtime = "nodejs";
 
@@ -32,7 +33,7 @@ export async function DELETE(
     await plaidClient.itemRemove({ access_token: decryptToken(item.token) });
   } catch (err: unknown) {
     // Already gone at Plaid is fine; anything else keeps the row so nothing is orphaned.
-    const code = (err as { response?: { data?: { error_code?: string } } }).response?.data?.error_code;
+    const code = extractPlaidErrorCode(err);
     if (code !== "ITEM_NOT_FOUND" && code !== "INVALID_ACCESS_TOKEN") {
       console.error("[DELETE /api/mobile/items] plaid itemRemove failed", errInfo(err));
       return NextResponse.json({ error: "plaid_error", code }, { status: 502 });
