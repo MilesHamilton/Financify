@@ -251,3 +251,45 @@ export interface DailySpendResponse {
   /** One entry per calendar day of the month, day 1 … daysInMonth. */
   days: DailySpendDay[];
 }
+
+// GET /api/mobile/recap?month=YYYY-MM  (default: last month; current or future month → 400)
+// "Lifestyle" = expense outflow minus fixed costs (housing, utilities, matched bills).
+export interface RecapMerchant {
+  name: string;
+  logoUrl: string | null;
+  spent: number;
+  count: number;
+}
+
+export interface RecapResponse {
+  month: string;
+  income: number;
+  /** All expense outflow, fixed costs included. */
+  totalSpent: number;
+  /** Same measure for the month before; null when that month has no spend. */
+  priorTotalSpent: number | null;
+  /** round((total − prior) / prior × 100); null when prior is null. */
+  changePct: number | null;
+  fixedSpent: number;
+  lifestyleSpent: number;
+  /** income − totalSpent. */
+  saved: number;
+  /** round(saved / income × 100); null when income is 0. */
+  savingsRatePct: number | null;
+  savingsTarget: number;
+  transactionCount: number;
+  /** Top 3 lifestyle categories, share = % of lifestyleSpent. */
+  topCategories: Array<Category & { spent: number; sharePct: number }>;
+  /** Most spent at. */
+  topMerchant: RecapMerchant | null;
+  /** Most visits; null when it's the same as topMerchant or < 3 visits. */
+  mostVisited: RecapMerchant | null;
+  biggestPurchase: { name: string; logoUrl: string | null; amount: number; date: string } | null;
+  /** Weekday with the highest lifestyle spend, e.g. "Saturday". */
+  busiestWeekday: { name: string; spent: number } | null;
+  noSpendDays: number;
+  /** Days spend stayed within the Daily Spend allowance (null when no income plan). */
+  daysUnderAllowance: number | null;
+  daysInMonth: number;
+  persona: { title: string; blurb: string };
+}

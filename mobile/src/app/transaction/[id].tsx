@@ -77,7 +77,7 @@ export default function TransactionDetail() {
           </Text>
         </View>
 
-        <Card style={[styles.panel, { paddingVertical: space(1) }]}>
+        <Card style={[styles.panel, { paddingVertical: space(2) }]}>
           <ListRow title="Account" value={txn.accountName} />
           <Divider />
           <PressableRow onPress={() => setPicking(true)} accessibilityLabel={`Category, ${txn.category.label}. Change`}>
@@ -85,7 +85,7 @@ export default function TransactionDetail() {
           </PressableRow>
         </Card>
 
-        <Card style={[styles.panel, { gap: space(1) }]}>
+        <Card style={[styles.panel, { gap: space(2) }]}>
           <Text style={[type.labelS, { color: colors.textSubtle }]}>Note</Text>
           <TextInput
             value={note}
@@ -137,10 +137,10 @@ export default function TransactionDetail() {
 const styles = StyleSheet.create({
   // Same fill as the native sheet so stretching/bouncing never reveals a second colour.
   screen: { flex: 1, backgroundColor: colors.card },
-  header: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: space(4), paddingTop: space(4) },
+  header: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: space(5), paddingTop: space(5) },
   close: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.track, alignItems: 'center', justifyContent: 'center' },
-  body: { paddingHorizontal: space(4), paddingBottom: space(10), gap: space(3) },
-  hero: { alignItems: 'center', gap: space(1), paddingBottom: space(3) },
+  body: { paddingHorizontal: space(5), paddingBottom: space(12), gap: space(5) },
+  hero: { alignItems: 'center', gap: space(2), paddingTop: space(2), paddingBottom: space(4) },
   panel: { backgroundColor: colors.cardSubtle },
   ignore: { flexDirection: 'row', alignItems: 'center', gap: space(3) },
 });

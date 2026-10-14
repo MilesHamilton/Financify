@@ -6,6 +6,7 @@ import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useDailySpend } from '@/components/daily-spend/model';
 import { AccountsCard } from '@/components/dashboard/AccountsCard';
+import { RecapBanner } from '@/components/dashboard/RecapBanner';
 import { SpendCarousel } from '@/components/dashboard/SpendCarousel';
 import { openTxn, TransactionRow } from '@/components/transactions';
 import { UpcomingCard } from '@/components/dashboard/UpcomingCard';
@@ -76,6 +77,8 @@ export default function Dashboard() {
             onSelectDay={openDay}
             onScrubbing={setScrubbing}
           />
+
+          <RecapBanner today={data.today} />
 
           <SectionHeader title="Accounts" action="Add account" onAction={() => router.push('/settings')} />
           <AccountsCard accounts={data.accounts} />

@@ -54,6 +54,7 @@ import { getAllStreams, mapStreamToContract, getLatestMatchingLogoUrl } from "@/
 export { getRecurringStreamsData, getRecurringStreamDetailData } from "@/domain/mobile-recurring";
 export { getNetWorthData } from "@/domain/mobile-networth";
 export { getDailySpendData } from "@/domain/mobile-daily-spend";
+export { getRecapData } from "@/domain/mobile-recap";
 
 // ---------------------------------------------------------------------------
 // GET /api/mobile/categories
@@ -126,7 +127,7 @@ async function getMerchantAggregation(month: string): Promise<MerchantRow[]> {
       AND NOT t.is_excluded
       AND c."group" = 'expense'
     GROUP BY COALESCE(t.merchant_name, t.name)
-    ORDER BY spent DESC
+    ORDER BY SUM(t.amount) DESC
     LIMIT 20
   `);
   return (rows.rows as Array<{ name: string; logo_url: string | null; spent: string; count: number }>).map(

@@ -1,4 +1,5 @@
-import { Redirect, Stack, useSegments } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { Redirect, router, Stack, useSegments } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -27,6 +28,13 @@ export default function RootLayout() {
     void hydrate();
   }, [hydrate]);
 
+  // Tapping the monthly recap notification (cold or warm start) opens the recap.
+  const opened = Notifications.useLastNotificationResponse();
+  useEffect(() => {
+    const url = opened?.notification.request.content.data?.url;
+    if (status === 'signedIn' && typeof url === 'string') router.push(url as '/recap');
+  }, [opened, status]);
+
   useEffect(() => {
     if (status !== 'loading') void SplashScreen.hideAsync().catch(() => {});
   }, [status]);
@@ -45,6 +53,7 @@ export default function RootLayout() {
         <Stack.Screen name="spending/budget" options={{ presentation: 'modal' }} />
         <Stack.Screen name="daily-spend/day" options={{ ...SHEET, sheetAllowedDetents: [0.7, 1], sheetInitialDetentIndex: 0 }} />
         <Stack.Screen name="daily-spend/goal" options={{ ...SHEET, sheetAllowedDetents: [1] }} />
+        <Stack.Screen name="recap" options={{ presentation: 'fullScreenModal', animation: 'fade' }} />
       </Stack>
       <Toast />
     </>

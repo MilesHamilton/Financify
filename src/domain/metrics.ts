@@ -616,7 +616,7 @@ export async function getCategoryBreakdown(
       AND NOT t.is_excluded
       AND c."group" = 'expense'
     GROUP BY c.id, c.label, c.color, c.icon
-    ORDER BY spent DESC
+    ORDER BY SUM(t.amount) DESC
   `);
 
   return (rows.rows as Array<{
