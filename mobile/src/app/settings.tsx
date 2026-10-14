@@ -85,6 +85,30 @@ export default function SettingsScreen() {
     );
   }
 
+  const confirmRemove = (itemId: string, accts: NetWorthResponse['accounts']) =>
+    Alert.alert(
+      `Remove ${accts[0].institutionName}?`,
+      `Disconnects ${accts.length === 1 ? 'this account' : `these ${accts.length} accounts`} and deletes their transaction history from Financify. You can link it again later.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: async () => {
+            setBusy(`remove:${itemId}`);
+            try {
+              await api(`/api/mobile/items/${itemId}`, { method: 'DELETE' });
+              await accounts.refresh();
+            } catch {
+              Alert.alert('Couldn’t remove', 'Please try again.');
+            } finally {
+              setBusy(null);
+            }
+          },
+        },
+      ],
+    );
+
   const confirmLogOut = () =>
     Alert.alert('Log out?', 'You’ll need to sign in again.', [
       { text: 'Cancel', style: 'cancel' },
@@ -119,6 +143,8 @@ export default function SettingsScreen() {
             accounts={accts}
             fixing={busy === itemId}
             onFix={() => void link(itemId, '/api/plaid/link/update', { itemId, platform: 'ios' }, itemId)}
+            removing={busy === `remove:${itemId}`}
+            onRemove={() => confirmRemove(itemId, accts)}
           />
         ))
       )}
