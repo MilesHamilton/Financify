@@ -46,6 +46,12 @@ export async function getNetWorthData(range: NetWorthRange): Promise<NetWorthRes
   const todayNY = getTodayNY();
 
   const [accountRows, snapshotRows] = await Promise.all([getAccounts(), fetchNonHiddenSnapshots()]);
+  // Today always uses live balances, so accounts with missing snapshots still count.
+  // Appended last, so they win the forward-fill for today.
+  for (const a of accountRows) {
+    if (!a.isHidden && a.currentBalance !== null)
+      snapshotRows.push({ accountId: a.id, type: a.type, asOfDate: todayNY, balance: parseFloat(a.currentBalance) });
+  }
 
   // Date axis: every known snapshot date, plus "today" so the line always
   // reaches the present using the latest carried-forward balances.

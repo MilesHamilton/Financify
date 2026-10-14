@@ -31,6 +31,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@/lib/plaid", () => ({
   plaidClient: {
     transactionsSync: vi.fn(),
+    accountsGet: vi.fn().mockRejectedValue(new Error("not mocked")),
   },
 }));
 

@@ -143,7 +143,14 @@ async function runOnce(itemId: string): Promise<boolean> {
     return true;
   }
 
-  const { added, modified, removedIds, nextCursor, syncAccounts } = buffers;
+  const { added, modified, removedIds, nextCursor } = buffers;
+  // transactions/sync only returns accounts that carry transactions, so investment/401k
+  // balances (and their snapshots) never refreshed. accountsGet covers every account.
+  const allAccounts = await plaidClient
+    .accountsGet({ access_token: accessToken })
+    .then((r) => r.data.accounts)
+    .catch(() => [] as AccountBase[]);
+  const syncAccounts = allAccounts.length > 0 ? allAccounts : buffers.syncAccounts;
 
   // ── Step 5: Apply in one DB transaction ──────────────────────────────────
   const pool = getPool();
