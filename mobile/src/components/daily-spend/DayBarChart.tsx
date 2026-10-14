@@ -1,7 +1,7 @@
 import type { DailySpendResponse } from '@contract';
 import { useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Svg, { Path, Polyline } from 'react-native-svg';
+import Svg, { G, Path, Polyline } from 'react-native-svg';
 
 import { topRoundedBar } from '@/components/recurring/HistoryBarChart';
 import { ScrubTooltip, useScrub, yTicks } from '@/components/SpendChart';
@@ -34,9 +34,11 @@ export function DayBarChart({
   const n = days.length;
   const plotW = Math.max(0, width - GUTTER - 8);
   const bar = n ? (plotW - GAP * (n - 1)) / n : 0;
-  const top = Math.max(10, ...days.map((d) => Math.max(d.spent, d.allowance ?? 0)));
+  // Outliers (rent, a big one-off) still count but are clipped so they don't flatten every other day.
+  const ref = Math.max(10, data.totals.averagePerDay, ...days.map((d) => d.allowance ?? 0));
+  const top = Math.max(ref, ...days.map((d) => d.spent).filter((s) => s <= ref * 3));
   const yMax = Math.ceil(top / 10) * 10;
-  const h = (v: number) => (v / yMax) * H;
+  const h = (v: number) => (Math.min(v, yMax) / yMax) * H;
   const x = (i: number) => i * (bar + GAP);
 
   const tapDay = (i: number) => {
@@ -90,7 +92,10 @@ export function DayBarChart({
                 if (d.spent <= 0) return <Path key={i} d={`M${x(i)},${H - 2} h${bar} v2 h${-bar} Z`} fill={colors.track} opacity={op} />;
                 const over = d.allowance !== null && d.spent > d.allowance;
                 return (
-                  <Path key={i} d={topRoundedBar(x(i), H - h(d.spent), bar, h(d.spent))} fill={over ? colors.warning : colors.chartLine} opacity={op} />
+                  <G key={i} opacity={op}>
+                    <Path d={topRoundedBar(x(i), H - h(d.spent), bar, h(d.spent))} fill={over ? colors.warning : colors.chartLine} />
+                    {d.spent > yMax ? <BreakMark x={x(i)} w={bar} /> : null}
+                  </G>
                 );
               })}
               {todayIdx >= 0 ? (
@@ -98,7 +103,7 @@ export function DayBarChart({
                   x={x(todayIdx)}
                   w={bar}
                   allowance={h(Math.max(days[todayIdx].allowance ?? 0, 0))}
-                  spent={h(Math.min(days[todayIdx].spent, yMax))}
+                  spent={h(days[todayIdx].spent)}
                   opacity={sel ? (scrub.index === todayIdx ? 1 : 0.4) : 1}
                 />
               ) : null}
@@ -184,6 +189,17 @@ function TodayBar({ x, w, allowance, spent, opacity }: { x: number; w: number; a
         opacity={opacity}
       />
       {spent > 0 ? <Path d={topRoundedBar(x, H - spent, w, spent)} fill={colors.brand} opacity={opacity} /> : null}
+    </>
+  );
+}
+
+/** Two slanted card-coloured cuts near the top: "this bar goes off the scale". */
+function BreakMark({ x, w }: { x: number; w: number }) {
+  return (
+    <>
+      {[8, 13].map((y) => (
+        <Path key={y} d={`M${x - 1},${y + 2} L${x + w + 1},${y - 1}`} stroke={colors.card} strokeWidth={2} />
+      ))}
     </>
   );
 }
