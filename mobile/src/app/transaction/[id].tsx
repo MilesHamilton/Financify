@@ -41,8 +41,14 @@ export default function TransactionDetail() {
 
   const header = (
     <View style={styles.header}>
-      <Pressable onPress={() => router.back()} hitSlop={12} accessibilityRole="button" accessibilityLabel="Close">
-        <X size={24} color={colors.text} />
+      <Pressable
+        onPress={() => router.back()}
+        hitSlop={12}
+        accessibilityRole="button"
+        accessibilityLabel="Close"
+        style={({ pressed }) => [styles.close, pressed && { backgroundColor: colors.accentFill }]}
+      >
+        <X size={18} color={colors.text} />
       </Pressable>
     </View>
   );
@@ -60,7 +66,7 @@ export default function TransactionDetail() {
   return (
     <View style={styles.screen}>
       {header}
-      <ScrollView contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
+      <ScrollView style={styles.screen} contentContainerStyle={styles.body} keyboardShouldPersistTaps="handled">
         <View style={styles.hero}>
           <MerchantLogo uri={txn.logoUrl} name={title} size={56} fallback={<CategoryBadge category={txn.category} size={56} />} />
           <Money value={Math.abs(txn.amount)} size="xl" color={txn.amount < 0 ? colors.success : undefined} countUp={400} />
@@ -71,7 +77,7 @@ export default function TransactionDetail() {
           </Text>
         </View>
 
-        <Card style={{ paddingVertical: space(1) }}>
+        <Card style={[styles.panel, { paddingVertical: space(1) }]}>
           <ListRow title="Account" value={txn.accountName} />
           <Divider />
           <PressableRow onPress={() => setPicking(true)} accessibilityLabel={`Category, ${txn.category.label}. Change`}>
@@ -79,7 +85,7 @@ export default function TransactionDetail() {
           </PressableRow>
         </Card>
 
-        <Card style={{ gap: space(1) }}>
+        <Card style={[styles.panel, { gap: space(1) }]}>
           <Text style={[type.labelS, { color: colors.textSubtle }]}>Note</Text>
           <TextInput
             value={note}
@@ -96,7 +102,7 @@ export default function TransactionDetail() {
           />
         </Card>
 
-        <Card style={styles.ignore}>
+        <Card style={[styles.panel, styles.ignore]}>
           <View style={{ flex: 1 }}>
             <Text style={type.label}>Ignore</Text>
             <Text style={[type.caption, { color: colors.textSubtle }]}>Excluded from spending.</Text>
@@ -129,9 +135,12 @@ export default function TransactionDetail() {
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: colors.bg },
-  header: { flexDirection: 'row', justifyContent: 'flex-end', padding: space(4), paddingTop: space(6) },
-  body: { paddingHorizontal: space(4), paddingBottom: space(10), gap: space(4) },
-  hero: { alignItems: 'center', gap: space(1), paddingBottom: space(4) },
+  // Same fill as the native sheet so stretching/bouncing never reveals a second colour.
+  screen: { flex: 1, backgroundColor: colors.card },
+  header: { flexDirection: 'row', justifyContent: 'flex-end', paddingHorizontal: space(4), paddingTop: space(4) },
+  close: { width: 32, height: 32, borderRadius: 16, backgroundColor: colors.track, alignItems: 'center', justifyContent: 'center' },
+  body: { paddingHorizontal: space(4), paddingBottom: space(10), gap: space(3) },
+  hero: { alignItems: 'center', gap: space(1), paddingBottom: space(3) },
+  panel: { backgroundColor: colors.cardSubtle },
   ignore: { flexDirection: 'row', alignItems: 'center', gap: space(3) },
 });
