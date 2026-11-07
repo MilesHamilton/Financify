@@ -2,7 +2,7 @@ import type { NetWorthResponse } from '@contract';
 import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, Linking, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
 import { InstitutionCard } from '@/components/settings/InstitutionCard';
@@ -39,7 +39,23 @@ export default function SettingsScreen() {
     setBusy(key);
     try {
       const { hosted_link_url } = await api<{ hosted_link_url: string }>(path, { method: 'POST', body });
-      await WebBrowser.openAuthSessionAsync(hosted_link_url, 'financify://linked');
+      // A bank's app (app-to-app OAuth) returns via financify://oauth-return while the sheet
+      // still shows the bank's web page; reopen Hosted Link so it resumes after the OAuth step.
+      let resume = false;
+      const sub = Linking.addEventListener('url', ({ url }) => {
+        if (!url.includes('oauth-return')) return;
+        resume = true;
+        WebBrowser.dismissAuthSession();
+      });
+      try {
+        await WebBrowser.openAuthSessionAsync(hosted_link_url, 'financify://linked');
+        for (let tries = 0; resume && tries < 3; tries++) {
+          resume = false;
+          await WebBrowser.openAuthSessionAsync(hosted_link_url, 'financify://linked');
+        }
+      } finally {
+        sub.remove();
+      }
       await api('/api/sync/trigger', { method: 'POST', body: itemId ? { itemId } : {} });
       await accounts.refresh();
     } catch {
