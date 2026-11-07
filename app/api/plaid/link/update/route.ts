@@ -12,7 +12,7 @@ export const runtime = "nodejs";
 
 const bodySchema = z.object({
   itemId: z.string().min(1),
-  // iOS app: finish on /linked?app=1, which deep-links back into the app.
+  // iOS app: finish on financify://linked, which closes the in-app browser.
   platform: z.literal("ios").optional(),
 });
 
@@ -67,8 +67,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // - webhook has no effect in update mode per Plaid docs, but included per spec
   const appBaseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? process.env.APP_BASE_URL;
   const hostedLink =
-    parsed.platform === "ios" && appBaseUrl
-      ? { completion_redirect_uri: `${appBaseUrl}/linked?app=1`, is_mobile_app: true }
+    parsed.platform === "ios"
+      ? { completion_redirect_uri: "financify://linked", is_mobile_app: true }
       : {};
 
   let hostedLinkUrl: string;

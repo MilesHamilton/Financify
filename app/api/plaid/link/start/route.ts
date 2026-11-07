@@ -54,10 +54,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // available, otherwise fall back to a path-only value that Plaid will
   // reject — this surfaces a clear misconfiguration error at startup rather
   // than a silent wrong redirect.
-  const linkedPath = isIosApp ? "/linked?app=1" : "/linked";
-  const completionRedirectUri = appBaseUrl
-    ? `${appBaseUrl}${linkedPath}`
-    : `${redirectUri.replace("/plaid/oauth-return", "")}${linkedPath}`;
+  // iOS: the custom scheme closes the app's ASWebAuthenticationSession directly
+  // (Plaid drops query strings, so /linked?app=1 landed on the web page).
+  const completionRedirectUri = isIosApp
+    ? "financify://linked"
+    : `${appBaseUrl ?? redirectUri.replace("/plaid/oauth-return", "")}/linked`;
 
   try {
     // linkTokenCreate params — all fields required by FR-008 / TR § 1.2 / integration-layer.md § Flow 1.
