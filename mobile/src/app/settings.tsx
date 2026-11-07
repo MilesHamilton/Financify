@@ -2,7 +2,7 @@ import type { NetWorthResponse } from '@contract';
 import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { Alert, Linking, View } from 'react-native';
+import { Alert, AppState, Linking, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
 import { InstitutionCard } from '@/components/settings/InstitutionCard';
@@ -14,6 +14,12 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { money, relativeTime } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
+
+/** iOS won't present a new auth sheet until the app is active and the old sheet has gone. */
+async function untilActive() {
+  while (AppState.currentState !== 'active') await new Promise((r) => setTimeout(r, 100));
+  await new Promise((r) => setTimeout(r, 700));
+}
 
 /** GET/PUT /api/settings — numeric columns come back as decimal strings. */
 interface AppSettings {
@@ -51,6 +57,7 @@ export default function SettingsScreen() {
         await WebBrowser.openAuthSessionAsync(hosted_link_url, 'financify://linked');
         for (let tries = 0; resume && tries < 3; tries++) {
           resume = false;
+          await untilActive();
           await WebBrowser.openAuthSessionAsync(hosted_link_url, 'financify://linked');
         }
       } finally {
@@ -58,8 +65,8 @@ export default function SettingsScreen() {
       }
       await api('/api/sync/trigger', { method: 'POST', body: itemId ? { itemId } : {} });
       await accounts.refresh();
-    } catch {
-      Alert.alert('Couldn’t open Plaid', 'Please try again.');
+    } catch (e) {
+      Alert.alert('Couldn’t open Plaid', e instanceof Error ? e.message : 'Please try again.');
     } finally {
       setBusy(null);
     }
