@@ -4,13 +4,13 @@ import { errInfo } from "@/lib/log-error";
 import { z } from "zod";
 import { plaidClient } from "@/lib/plaid";
 import { CountryCode, Products } from "plaid";
+import { startAppLink } from "@/lib/link-session";
 
 // Node runtime required — plaid SDK (axios-based) does not run on Edge.
 // TR.md § 1.2 / TR.md § 3 architecture decisions.
 export const runtime = "nodejs";
 
-// Response schema — only hosted_link_url is sent to the client.
-// link_token is intentionally excluded per TR.md § 1.2 ("Does NOT return: link_token").
+// Response: the /link page the app opens (field name kept for the app's contract).
 const responseSchema = z.object({
   hosted_link_url: z.string().url(),
 });
@@ -22,16 +22,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  // Optional JSON body { platform: "ios" } — the iOS app opts into the
-  // app=1 completion redirect so /linked can hand control back to the app
-  // via a financify:// deep link. Body is optional, so tolerate empty/invalid JSON.
-  const body = (await req.json().catch(() => null)) as { platform?: unknown } | null;
-  const isIosApp = body?.platform === "ios";
-
   // Validate required env vars before hitting Plaid.
   const webhookUrl = process.env.PLAID_WEBHOOK_URL;
   const redirectUri = process.env.PLAID_REDIRECT_URI;
-  const appBaseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? process.env.APP_BASE_URL;
 
   if (!webhookUrl) {
     console.error("[link/start] Missing required env var: PLAID_WEBHOOK_URL");
@@ -48,17 +41,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 500 },
     );
   }
-
-  // completion_redirect_uri: spec (integration-layer.md § Flow 1) shows
-  // "https://financify.vercel.app/linked". Derive from APP_BASE_URL env if
-  // available, otherwise fall back to a path-only value that Plaid will
-  // reject — this surfaces a clear misconfiguration error at startup rather
-  // than a silent wrong redirect.
-  // iOS: the custom scheme closes the app's ASWebAuthenticationSession directly
-  // (Plaid drops query strings, so /linked?app=1 landed on the web page).
-  const completionRedirectUri = isIosApp
-    ? "financify://linked"
-    : `${appBaseUrl ?? redirectUri.replace("/plaid/oauth-return", "")}/linked`;
 
   try {
     // linkTokenCreate params — all fields required by FR-008 / TR § 1.2 / integration-layer.md § Flow 1.
@@ -77,30 +59,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       transactions: {
         days_requested: 730,
       },
-      hosted_link: {
-        url_lifetime_seconds: 1800,
-        completion_redirect_uri: completionRedirectUri,
-        // ASWebAuthenticationSession: lets Hosted Link resume after a bank's app returns via redirect_uri.
-        is_mobile_app: isIosApp,
-      },
       webhook: webhookUrl,
       redirect_uri: redirectUri,
       country_codes: [CountryCode.Us],
       language: "en",
     });
 
-    const hostedLinkUrl = response.data.hosted_link_url;
-
-    if (!hostedLinkUrl) {
-      console.error(
-        "[link/start] Plaid response missing hosted_link_url",
-        { request_id: response.data.request_id },
-      );
-      return NextResponse.json(
-        { error: "link_token_create_failed" },
-        { status: 502 },
-      );
-    }
+    const hostedLinkUrl = await startAppLink(response.data.link_token, null);
 
     // Zod-validate the outbound response shape before returning.
     const parsed = responseSchema.parse({ hosted_link_url: hostedLinkUrl });

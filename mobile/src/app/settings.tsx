@@ -2,7 +2,7 @@ import type { NetWorthResponse } from '@contract';
 import Constants from 'expo-constants';
 import * as WebBrowser from 'expo-web-browser';
 import { useState } from 'react';
-import { Alert, AppState, Linking, View } from 'react-native';
+import { Alert, View } from 'react-native';
 
 import { BackButton } from '@/components/BackButton';
 import { InstitutionCard } from '@/components/settings/InstitutionCard';
@@ -14,12 +14,6 @@ import { api } from '@/lib/api';
 import { useAuthStore } from '@/lib/auth-store';
 import { money, relativeTime } from '@/lib/format';
 import { useApi } from '@/lib/use-api';
-
-/** iOS won't present a new auth sheet until the app is active and the old sheet has gone. */
-async function untilActive() {
-  while (AppState.currentState !== 'active') await new Promise((r) => setTimeout(r, 100));
-  await new Promise((r) => setTimeout(r, 700));
-}
 
 /** GET/PUT /api/settings — numeric columns come back as decimal strings. */
 interface AppSettings {
@@ -40,29 +34,12 @@ export default function SettingsScreen() {
     null,
   );
 
-  /** Opens Plaid Hosted Link, then queues a sync and reloads accounts. */
+  /** Opens Plaid Link on the API host (/link), then queues a sync and reloads accounts. */
   async function link(key: string, path: string, body: object, itemId?: string) {
     setBusy(key);
     try {
       const { hosted_link_url } = await api<{ hosted_link_url: string }>(path, { method: 'POST', body });
-      // A bank's app (app-to-app OAuth) returns via financify://oauth-return while the sheet
-      // still shows the bank's web page; reopen Hosted Link so it resumes after the OAuth step.
-      let resume = false;
-      const sub = Linking.addEventListener('url', ({ url }) => {
-        if (!url.includes('oauth-return')) return;
-        resume = true;
-        WebBrowser.dismissAuthSession();
-      });
-      try {
-        await WebBrowser.openAuthSessionAsync(hosted_link_url, 'financify://linked');
-        for (let tries = 0; resume && tries < 3; tries++) {
-          resume = false;
-          await untilActive();
-          await WebBrowser.openAuthSessionAsync(hosted_link_url, 'financify://linked');
-        }
-      } finally {
-        sub.remove();
-      }
+      await WebBrowser.openAuthSessionAsync(hosted_link_url, 'financify://linked');
       await api('/api/sync/trigger', { method: 'POST', body: itemId ? { itemId } : {} });
       await accounts.refresh();
     } catch (e) {

@@ -3,8 +3,45 @@ import "server-only";
 import { plaidClient } from "@/lib/plaid";
 import { encryptToken } from "@/lib/crypto";
 import { applyAccounts, syncItem } from "@/lib/sync";
+import { and, desc, eq, gt } from "drizzle-orm";
 import { db } from "@/db";
 import { items, syncEvents } from "@/db/schema";
+
+/** A started Link session, kept so /plaid/oauth-return can re-open Link after a bank's OAuth. */
+export interface LinkStart {
+  link_token: string;
+  /** Set for update mode ("Fix connection"). */
+  item_id: string | null;
+}
+
+const LINK_TTL_MS = 30 * 60 * 1000;
+
+/**
+ * Records the link_token and returns /link on this host for the app to open.
+ * Plain Link (not Hosted Link) because Hosted Link can't resume after app-to-app
+ * OAuth without a Universal Link, which a personal Apple team can't sign.
+ */
+export async function startAppLink(linkToken: string, itemId: string | null): Promise<string> {
+  const start: LinkStart = { link_token: linkToken, item_id: itemId };
+  await db.insert(syncEvents).values({ kind: "link_started", payload: start });
+  const origin = new URL(process.env.PLAID_REDIRECT_URI!).origin;
+  return `${origin}/link?token=${encodeURIComponent(linkToken)}`;
+}
+
+export async function latestLinkStart(): Promise<LinkStart | null> {
+  const [row] = await db
+    .select({ payload: syncEvents.payload })
+    .from(syncEvents)
+    .where(
+      and(
+        eq(syncEvents.kind, "link_started"),
+        gt(syncEvents.createdAt, new Date(Date.now() - LINK_TTL_MS)),
+      ),
+    )
+    .orderBy(desc(syncEvents.createdAt))
+    .limit(1);
+  return (row?.payload as LinkStart | undefined) ?? null;
+}
 
 /**
  * Handles a successful Plaid Hosted Link SESSION_FINISHED (FR-009).

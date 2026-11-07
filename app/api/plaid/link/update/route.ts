@@ -7,12 +7,13 @@ import { items } from "@/db/schema";
 import { plaidClient } from "@/lib/plaid";
 import { decryptToken } from "@/lib/crypto";
 import { CountryCode } from "plaid";
+import { startAppLink } from "@/lib/link-session";
 
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
   itemId: z.string().min(1),
-  // iOS app: finish on financify://linked, which closes the in-app browser.
+  // Sent by the iOS app; every session now runs on /link (see startAppLink).
   platform: z.literal("ios").optional(),
 });
 
@@ -61,16 +62,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // Call Plaid /link/token/create in update mode (FR-010, Flow 4)
   // - access_token: the existing decrypted token (triggers update mode)
   // - products: [] (MUST be empty in update mode per spec)
-  // - hosted_link: empty for web; the iOS app gets a completion redirect so its
-  //   in-app browser closes when the user finishes
   // - redirect_uri still required: institutions are OAuth-based (Amex, SoFi)
   // - webhook has no effect in update mode per Plaid docs, but included per spec
-  const appBaseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? process.env.APP_BASE_URL;
-  const hostedLink =
-    parsed.platform === "ios"
-      ? { completion_redirect_uri: "financify://linked", is_mobile_app: true }
-      : {};
-
   let hostedLinkUrl: string;
   try {
     const response = await plaidClient.linkTokenCreate({
@@ -82,21 +75,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       products: [],
       webhook: process.env.PLAID_WEBHOOK_URL,
       redirect_uri: process.env.PLAID_REDIRECT_URI,
-      hosted_link: hostedLink,
     });
 
-    const url = response.data.hosted_link_url;
-    if (!url) {
-      console.error("[plaid/link/update] Plaid response missing hosted_link_url", {
-        itemId: parsed.itemId,
-        requestId: response.data.request_id,
-      });
-      return NextResponse.json(
-        { error: "link_token_create_failed" },
-        { status: 502 },
-      );
-    }
-    hostedLinkUrl = url;
+    hostedLinkUrl = await startAppLink(response.data.link_token, parsed.itemId);
   } catch (err) {
     const plaidError = (err as { response?: { data?: { error_code?: string; request_id?: string } } })
       ?.response?.data;

@@ -1,17 +1,17 @@
-import { redirect } from "next/navigation";
+import { latestLinkStart } from "@/lib/link-session";
+import { PlaidLink } from "../../link/PlaidLink";
+
+export const dynamic = "force-dynamic";
 
 /**
  * OAuth redirect URI (PLAID_REDIRECT_URI, allowlisted in the Plaid Dashboard).
- * A bank's app (app-to-app OAuth) opens this in Safari when it's done. Without
- * a Universal Link (personal Apple team can't sign Associated Domains), hop
- * back into the iOS app by scheme, keeping Plaid's query (oauth_state_id);
- * the app then reopens Hosted Link, which resumes after the OAuth step.
+ * The bank returns here, in the app's sheet or in Safari after its own app;
+ * Link re-opens with this URL and finishes the session on the spot.
  */
-export default async function OAuthReturnPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string>>;
-}) {
-  const query = new URLSearchParams(await searchParams).toString();
-  redirect(`financify://oauth-return${query ? `?${query}` : ""}`);
+export default async function OAuthReturnPage() {
+  const start = await latestLinkStart();
+  if (!start) {
+    return <p style={{ color: "#C1C1C1" }}>This link has expired. Return to Financify and try again.</p>;
+  }
+  return <PlaidLink token={start.link_token} resume />;
 }
