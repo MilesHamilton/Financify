@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
  */
 export default async function OAuthReturnPage() {
   const start = await latestLinkStart();
+  console.log({ msg: "oauth_return", has_link_start: Boolean(start), item_id: start?.item_id ?? null });
   if (!start) {
     return <p style={{ color: "#C1C1C1" }}>This link has expired. Return to Financify and try again.</p>;
   }

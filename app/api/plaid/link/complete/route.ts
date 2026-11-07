@@ -26,6 +26,7 @@ export async function POST(request: Request): Promise<NextResponse> {
   if (!parsed.success) return NextResponse.json({ error: "invalid_request" }, { status: 400 });
 
   const start = await latestLinkStart();
+  if (!start) console.error({ msg: "link_complete_no_session" });
   if (!start) return NextResponse.json({ error: "no_link_session" }, { status: 409 });
 
   try {
@@ -41,5 +42,6 @@ export async function POST(request: Request): Promise<NextResponse> {
     console.error("[link/complete] failed", errInfo(err));
     return NextResponse.json({ error: "link_complete_failed" }, { status: 502 });
   }
+  console.log({ msg: "link_complete_ok", update_mode: Boolean(start.item_id) });
   return NextResponse.json({ ok: true });
 }

@@ -401,6 +401,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         webhook_type: webhookType,
         webhook_code: webhookCode,
       });
+      // LINK/EVENTS is Plaid's step log of a Link session; it's the only trace of
+      // where an OAuth round trip stopped. Metadata holds no tokens.
+      if (webhookCode === "EVENTS") {
+        const events = (JSON.parse(rawBody) as { events?: Array<{ event_name?: string; event_metadata?: object }> }).events;
+        console.log(JSON.stringify({ msg: "link_events", events: events?.map((e) => ({ name: e.event_name, ...e.event_metadata })) }));
+      }
       after(async () => {
         try {
           await db.insert(syncEvents).values({
