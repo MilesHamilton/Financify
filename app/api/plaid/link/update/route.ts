@@ -68,7 +68,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   const appBaseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? process.env.APP_BASE_URL;
   const hostedLink =
     parsed.platform === "ios" && appBaseUrl
-      ? { completion_redirect_uri: `${appBaseUrl}/linked?app=1` }
+      ? { completion_redirect_uri: `${appBaseUrl}/linked?app=1`, is_mobile_app: true }
       : {};
 
   let hostedLinkUrl: string;

@@ -1,16 +1,11 @@
+import { redirect } from "next/navigation";
+
 /**
- * OAuth redirect URI landing page (PLAID_REDIRECT_URI, allowlisted in the
- * Plaid Dashboard). Hosted Link normally completes the OAuth round-trip on
- * its own page; users only land here in edge flows.
+ * OAuth redirect URI (PLAID_REDIRECT_URI, allowlisted in the Plaid Dashboard).
+ * A bank's app (app-to-app OAuth) opens this in Safari when it's done. Without
+ * a Universal Link (personal Apple team can't sign Associated Domains), hop
+ * back into the iOS app by scheme; Hosted Link then resumes in its open sheet.
  */
 export default function OAuthReturnPage() {
-  return (
-    <>
-      <h1 style={{ fontSize: 22, fontWeight: 600 }}>Finishing up…</h1>
-      <p style={{ color: "#C1C1C1" }}>
-        If the Plaid window didn&apos;t finish on its own, return to it to
-        complete linking, then go back to the Financify app.
-      </p>
-    </>
-  );
+  redirect("financify://oauth-return");
 }

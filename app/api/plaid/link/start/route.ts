@@ -79,7 +79,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       hosted_link: {
         url_lifetime_seconds: 1800,
         completion_redirect_uri: completionRedirectUri,
-        is_mobile_app: false,
+        // ASWebAuthenticationSession: lets Hosted Link resume after a bank's app returns via redirect_uri.
+        is_mobile_app: isIosApp,
       },
       webhook: webhookUrl,
       redirect_uri: redirectUri,
